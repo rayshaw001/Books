@@ -1019,11 +1019,48 @@ Scheduler中的优选策略：
 --cloud-provider:   gaoshu kubelet如何从云服务商（IaaS）那里读取到和自己相关的元数据
 ```
 
-kubelet 在启动的时候通过API Server注册节点信息，并定时想API Server发送节点的新消息，API Server在接收到这些信息后，将这些信息写入etcd。通过kubelet的启动参数“node-status-update-frequency”设置kubelet每隔多少时间向API Server报告节点状态，默认为10秒
+kubelet 在启动的时候通过API Server注册节点信息，并定时想API Server发送节点的新消息，API Server在接收到这些信息后，将这些信息写入etcd。通过kubelet的启动参数“node-status-update-frequency”设置kubelet每隔多少时间向API Server报告节点状态，默认为10秒.
 
+### 3.4.2 Pod管理
+```
+    kubelet通过以下几种方式获取自身Node上所要运行的Pod清单
+1. 文件：kubelet启动参数“--config”指定的配置文件目录下的文件（默认目录为“/etc/kubernetes/manifests/”）。通过--file-check-frequency设置检查该文件目录的时间间隔，默认为20秒
+2. HTTP端点（URL）：通过“--manifest-url”参数设置。通过--http-check-frequency设置检查该HTTP端点的时间间隔，默认为20秒
+3. API Server：kubelet 通过API Server监听etcd目录，同步Pod列表    
+```
+
+```
+kubelet 监听etcd的修改，如果etcd中Pod信息变更（如创建、修改Pod任务），则做一下处理
+1. 为该Pod创建一个数据目录
+2. 从API Server 读取该Pod清单
+3. 为该Pod挂载外部卷
+4. 下载Pod用到的Secret
+5. 检查已经运行在节点中的Pod，如果该Pod没有容器或Pause容器没有启动，则先停止Pod里所有容器的进程。如果Pod中有需要删除的内容，则删除这些容器。
+6. 用kubernetes/pause镜像为每个Pod创建一个容器。该Pause容器用于接管Pod中所有其他容器的网络。没创建一个新的Pod，kubelet都会先创建一个Pause容器，然后创建其他容器
+7. 为每个Pod容器做如下处理
+    1) 为容器计算一个hash值然后用容器的名字去查询对应DOcker容器的hash值。若查找到容器，且两者的hash值不同,则停止Docker中容器的进程，并停止与之关联的Pause容器进程；若两者相同，则不做任何处理
+    2) 如果容器被终止了，且没有指定的restartPolicy，则不做任何处理。
+    3） 调用Docker Client下载容器镜像，调用Docker Client运行容器
+```
+
+### 3.4.3 容器健康检查
+2种探针
+```
+1. LivenessProbe探针：如果没有设置LivenessProbe，则默认永远返回Success。若探测到不健康，则容器将被删除，包含以下三种实现方式。
+    1) ExecAction: 在容器内部执行一个命令，如果该命令的推出状态码为0，则表明容器健康
+    2) TCPSocketAction: 通过容器的IP地址和端口号执行TCP检查，如果能被访问，则表明容器健康
+    3) HTTPGetAction: 通过容器的IP地址和端口号及路径调用HTTP Get方法，如果响应的状态码大于等于200且小于400，则认为容器状态健康
+
+2. ReadinessProbe探针：用于判断容器是否启动完成且准备接受请求。如果ReadinessProbe探测到失败，则Pod的状态将被修改。Endpoint Controller 将从Service的Endpoint中删除包含该容器所在Pod的IP地址的Endpoint条目
+
+
+```
+
+### 3.4.4 cAdvisor 资源监控
+    cAdvisor被集成到了Kubernetes代码中，它自动查找所有在其所在节点上的容器，自动采集CPU、内存、文件系统和网络使用的统计信息。并通过所在节点机的4191端口暴露一个简单的UI。
 
 ## 3.5 kube-proxy 运行机制分析
-
+![Service 负载均衡转发规则](https://github.com/rayshaw001/common-pictures/blob/master/K8S/ServiceLoadBlancerForwardRule.JPG?raw=true)
 
 ## 3.6 深入分析集群安全机制
 
