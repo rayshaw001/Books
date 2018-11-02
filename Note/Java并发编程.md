@@ -204,7 +204,7 @@ Java SE 1.6 开始引入了“偏向锁”和“轻量级锁”，锁一共有4�
 ##### 2.2.2.1.1 偏向锁的撤销
 >偏向锁使用了一种等到竞争出现才释放锁的机制，所以当其他线程尝试竞争偏向锁时，持有偏向锁的线程才会释放锁。偏向锁的撤销，需要等待全局安全点（在这个时间点上没有正在执行的字节码）。它会首先暂停拥有偏向锁的线程，然后检查持有偏向锁的线程是否活着，如果线程不处于活动状态，则将对象头设置成无锁状态；如果线程仍然活着，拥有偏向锁的栈会被执行，遍历偏向对象的锁记录，栈中的锁记录和对象头的Mark Word要么重新偏向于其他线程，要么恢复到无锁或者标记对象不适合作为偏向锁，最后唤醒暂停的线程
 
-![Prefer Lock]((https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/PreferLock.jpg?raw=true))
+![Prefer Lock](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/PreferLock.jpg?raw=true)
 
 ##### 2.2.2.1.2 关闭偏向锁
 >偏向锁在Java 6和Java 7里是默认启用的，但是它在应用程序启动几秒钟之后才激活，如有必要可以使用JVM参数来关闭延迟：-XX:BiasedLockingStartupDelay=0。
