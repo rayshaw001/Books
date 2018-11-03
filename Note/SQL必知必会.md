@@ -122,3 +122,53 @@ FROM Products; */
 SELECT prod_name
 FROM Products;
 ```
+
+# 3 排序检索数据
+> 本章讲述如何使用SELECT语句的ORDER BY子句，根据需要排序检索出的数据
+
+## 3.1
+```
+SELECT prod_name
+FROM Products
+ORDER BY prod_name; 
+```
+\# 要保证ORDER BY 子句是SELECT语句中的最后一句
+
+\# 通常ORDER BY子句中使用的列是为显示而选择的列。但实际上使用非检索的列也是合法的。
+
+## 3.2 按多个列排序
+```
+SELECT prod_id, prod_price, prod_name
+FROM Products
+ORDER BY prod_price, prod_name; 
+```
+\# 当且仅当prod_price的值重复的时候，才会按照prod_name排序。如果prod_price是不重复的，则不会按prod_name排序
+
+## 3.3 按列位置排序
+```
+SELECT prod_id, prod_price, prod_name
+FROM Products
+ORDER BY 2, 3;
+```
+>表示按照选择列的相对位置排序，上面的示例是首先按照prod_price，其次按照prod_name排序。
+
+\#  按列位置排序的时候，不能选定没有出现在SELECT清单中的列进行排序时。但是，如果有必要，可以混合匹配使用实际列名和相对列位置。
+
+## 3.4 指定排序方向
+```
+SELECT prod_id, prod_price, prod_name
+FROM Products
+ORDER BY prod_price DESC; 
+```
+> ORDER BY 默认是升序的，如果需要降序排列，需要指定DESC（或DESCENDING）
+
+> 需要说明的是，DESC/ASC只作用于单个列，如果多个列需要降序排列，则每个列都需要显式指定DESC
+
+> 排序时是否区分大小写取决于数据库的设置，大多数数据库默认不区分大小写，如果确实需要区分大小写，简单的ORDER BY是做不到的
+
+# 4 过滤数据
+> SELECT、WHERE
+
+## 4.1 使用WHERE子句
+
+
