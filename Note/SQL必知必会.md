@@ -519,3 +519,47 @@ WHERE strftime('%Y', order_date) = 2012;
 # 9 汇总数据
 
 ## 9.1 聚集函数
+
+>用途
+
+>>确定表中行数（或者满足某个条件或包含某个特定值的行数）；
+
+>>获得表中某些行的和；
+
+>>找出表列（或所有行或某些特定的行）的最大值、最小值、平均值。
+
+\# 聚集函数：对某些行运行的函数，计算一个返回值
+
+|函数|说明|其他|
+|----|---|----|
+|AVG()|平均值|AVG()函数忽略列值为NULL的行|
+|COUNT()|行数|指定列名的时候会忽略NULL，而COUNT(\*)不会忽略NULL|
+|MAX()|最大值|MAX()函数忽略列值为NULL的行。参数为文本数据时，返回该排列的最后一行|
+|MIN()|最小值|MIN()函数忽略列值为NULL的行。参数为文本数据时，返回该排列的最前面一行|
+|SUM()|列值之和|SUM()函数忽略列值为NULL的行|
+
+## 9.2 聚集不同的值
+>对所有行执行计算，指定ALL参数或不指定参数（因为ALL是默认行为）。
+
+> 只包含不同的值，指定DISTINCT
+
+\# Access在聚集函数中不支持DISTINCT。要在Access得到类似的结果，需要使用子查询把DISTINCT数据返回到外部SELECT COUNT(\*)语句。
+
+\# DISTINCT 只能用于COUNT(),不能用于COUNT(\*)
+```
+SELECT AVG(DISTINCT prod_price) AS avg_price    # 不要在Access中这样使用
+FROM Products
+WHERE vend_id = 'DLL01';
+```
+
+## 9.3 组合聚集函数
+```
+SELECT COUNT(*) AS num_items,
+MIN(prod_price) AS price_min,
+MAX(prod_price) AS price_max,
+AVG(prod_price) AS price_avg
+FROM Products;
+```
+\# 别名最好不要取表中的列名
+
+# 10 分组数据
