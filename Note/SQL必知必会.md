@@ -642,6 +642,50 @@ ORDER BY items, order_num;
 |HAVING|组级过滤|否|
 |ORDER BY|输出排序顺序|否|
 
+# 11 使用子查询
+
+## 11.1 子查询
+\# MySQL 从v4.1起引入子查询
+
+## 11.2 利用子查询进行过滤
+
+```
+SELECT cust_name, cust_contact
+FROM Customers
+WHERE cust_id IN (SELECT cust_id
+                  FROM Order
+                  WHERE order_num IN (SELECT order_num
+                                      FROM OrderItems
+                                      WHERE prod_id = 'RGAN01'));
+```
+
+\# Warning:
+1. 对嵌套子查询的数目没有限制，但出于性能考虑，不能嵌套太多子查询
+2. 子查询的SELECT语句只能是单个列，SELECT多个列将返回错误
+3. 子查询并不是检索这类数据的最佳方法，参见chapter 12
+
+## 11.3 作为计算字段使用子查询
+```
+#统计每个顾客的order数量
+SELECT cust_name,
+cust_state,
+(SELECT COUNT(*)
+FROM Orders
+WHERE Orders.cust_id = Customers.cust_id) AS orders
+FROM Customers
+ORDER BY cust_name;
+```
+
+\# Warning:
+1. 建议完全限定列名
+2. 不止子查询这一种解决方案，后面的JOIN也很有用
+
+## 12 联结表
+
+
+
+
+
 
 
 
