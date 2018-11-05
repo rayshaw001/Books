@@ -677,17 +677,385 @@ ORDER BY cust_name;
 1. 建议完全限定列名
 2. 不止子查询这一种解决方案，后面的JOIN也很有用
 
-## 12 联结表
+# 12 联结表
+
+## 12.1 联结
+>联结是利用SQL的SELECT能执行的最重要的操作，很好地理解联结及其语法是学习SQL的极为重要的部分。
+
+### 12.1.1 关系表
+>可伸缩（scale）: 能够适应不断增加的工作量而不失败。设计良好的数据库或应用程序称为可伸缩性好（scale well）
+
+### 12.1.2 为什么使用联结
+>联结是一种机制，用来在一条SELECT语句中关联表，因此称为联结。
+
+## 12.2 创建联结
+```
+SELECT vend_name, prod_name, prod_price
+FROM Vendors, Products
+WHERE Vendors.vend_id = Products.vend_id;
+```
+\# 记得完全限定表名
+
+### 12.2.1 WHERE子句的重要性
+>**笛卡尔积**
+>
+>由没有联结条件的表关系返回的结果为笛卡儿积。检索出的行的数目将是第一个表中的行数乘以第二个表中的行数。
+
+```
+SELECT vend_name, prod_name, prod_price
+FROM Vendors, Products;
+# 返回笛卡尔积
+```
+
+### 12.2.2 内联结
+```
+SELECT vend_name, prod_name, prod_price
+FROM Vendors INNER JOIN Products
+ON Vendors.vend_id = Products.vend_id;
+```
+\# ANSI SQL规范首选INNER JOIN语法
+
+### 12.2.3 联结多个表
+```
+SELECT prod_name, vend_name, prod_price, quantity
+FROM OrderItems, Products, Vendors
+WHERE Products.vend_id = Vendors.vend_id
+AND OrderItems.prod_id = Products.prod_id
+AND order_num = 20007;
+```
+
+> **Warning：**
+>>不要联结不必要的表，联结的表越多，性能下降的越厉害
+>>
+>>实际上许多DBMS都有限制每个联结约束中表的数目
+
+```
+#使用子查询
+SELECT cust_name, cust_contact
+FROM Customers
+WHERE cust_id IN (SELECT cust_id
+FROM Orders
+WHERE order_num IN (SELECT order_num
+FROM OrderItems
+WHERE prod_id = 'RGAN01'));
+
+#使用联结查询
+SELECT cust_name, cust_contact
+FROM Customers, Orders, OrderItems
+WHERE Customers.cust_id = Orders.cust_id
+AND OrderItems.order_num = Orders.order_num
+AND prod_id = 'RGAN01';
+```
+
+\# Note:  ，执行任一给定的SQL操作一般不止一种方法。很少有绝对正确或绝对错误的方法。性能可能会受操作类型、所使用的DBMS、表中数据量、是否存在索引或键等条件的影响。因此，有必要试验不同的选择机制，找出最适合具体情况的方法。
+
+# 13 创建高级联结
+## 13.1 使用表别名
+```
+#使用别名
+SELECT cust_name, cust_contact
+FROM Customers AS C, Orders AS O, OrderItems AS OI
+WHERE C.cust_id = O.cust_id
+AND OI.order_num = O.order_num
+AND prod_id = 'RGAN01';
+```
+
+\# **Warning:** Oracle 不支持AS关键字，简单指定列名即可（应该使用Customers C，而不是Customers AS C）
+
+## 13.2 使用不同类型的联结
+>不同类型的**联结**
+>> **内联结**  条件可以是不等
+>> **等值联结** 条件必须是相等，可以看做内联结的子集
+>> **自连接** 
+>> **自然联结** 每个内联结都是自然联结
+>> **外联结**
+
+### 13.2.1 自联结
+```
+# 子查询
+SELECT cust_id, cust_name, cust_contact
+FROM Customers
+WHERE cust_name = (SELECT cust_name
+                  FROM Customers
+                  WHERE cust_contact = 'Jim Jones');
+# 自联结
+SELECT c1.cust_id, c1.cust_name, c1.cust_contact
+FROM Customers AS c1, Customers AS c2
+WHERE c1.cust_name = c2.cust_name
+AND c2.cust_contact = 'Jim Jones';
+```
+
+### 13.2.2 自然联结
+>无论何时对表进行联结，应该至少有一列不止出现在一个表中（被联结的列）。标准的联结（前一课中介绍的内联结）返回所有数据，相同的列甚至多次出现。自然联结排除多次出现，使每一列只返回一次。
+>
+>系统不会完成这项工作，一般由自己手动完成（对一个表使用通配符SELECT \*，而对其他表的列使用明确的子集来完成）
+
+```
+# Example
+SELECT C.*, O.order_num, O.order_date,
+OI.prod_id, OI.quantity, OI.item_price
+FROM Customers AS C, Orders AS O, OrderItems AS OI
+WHERE C.cust_id = O.cust_id
+AND OI.order_num = O.order_num
+AND prod_id = 'RGAN01';
+```
+
+\# Note : Oracle中没有AS
+
+### 13.2.3 外联结
+#### 13.2.3.1 左外联结
+```
+SELECT Customers.cust_id, Orders.order_num
+FROM Customers LEFT OUTER JOIN Orders
+ON Customers.cust_id = Orders.cust_id;
+
+#以左表为准，右侧不存的值的时候用NULL补足，右外联结、全外联结同理
+```
+
+#### 13.2.3.2 右外联结
+```
+SELECT Customers.cust_id, Orders.order_num
+FROM Customers RIGHT OUTER JOIN Orders
+ON Orders.cust_id = Customers.cust_id;
+```
+\# 可以转化成左外联结
+
+\# SQLite 不支持RIGHT OUTER JOIN ,因为左、右外联结可以相互转换
+#### 13.2.3.3 全外联结
+```
+SELECT Customers.cust_id, Orders.order_num
+FROM Orders FULL OUTER JOIN Customers
+ON Orders.cust_id = Customers.cust_id;
+```
+
+\# **Warning:** Access、MariaDB、MySQL、Open Office Base 或SQLite不支持FULL OUTER JOIN语法
+
+## 13.3 使用带聚集函数的联结
+```
+SELECT Customers.cust_id,
+COUNT(Orders.order_num) AS num_ord
+FROM Customers INNER JOIN Orders
+ON Customers.cust_id = Orders.cust_id
+GROUP BY Customers.cust_id;
+```
 
 
 
+## 13.4 使用联结和联结条件
+>注意所使用的联结类型。一般我们使用内联结，但使用外联结也有效。
+>
+>关于确切的联结语法，应该查看具体的文档，看相应的DBMS支持何种语法（大多数DBMS使用这两课中描述的某种语法）。
+>
+>保证使用正确的联结条件（不管采用哪种语法），否则会返回不正确的数据。
+>
+>应该总是提供联结条件，否则会得出笛卡儿积。
+>
+>在一个联结中可以包含多个表，甚至可以对每个联结采用不同的联结类型。虽然这样做是合法的，一般也很有用，但应该在一起测试它们前分别测试每个联结。这会使故障排除更为简单。
+
+# 14 组合查询
+>如何利用UNION操作符将多条SELECT语句组合成一个结果集?
+
+## 14.1 组合查询
+>主要有两种情况需要使用组合查询：
+>>在一个查询中从不同的表返回结构数据；
+>>
+>>对一个表执行多个查询，按一个查询返回数据。
+
+## 14.2 创建组合查询
+
+### 14.2.1 使用UNION
+```
+# 使用UNION
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_state IN ('IL','IN','MI')
+UNION
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_name = 'Fun4All';
+
+#使用OR
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_state IN ('IL','IN','MI')
+OR cust_name = 'Fun4All';
+```
+\# Tips:使用UNION组合SELECT语句的数目，SQL没有标准限制。但是，最好是参考一下具体的DBMS文档，了解它是否对UNION能组合的最大语句数目有限制。
+
+\# **Warning:** 多数好的DBMS使用内部查询优化程序，在处理各条SELECT语句前组合它们。理论上讲，这意味着从性能上看使用多条WHERE子句条件还
+是UNION应该没有实际的差别。不过我说的是理论上，实践中多数查询优化程序并不能达到理想状态，所以最好测试一下这两种方法，看哪
+种工作得更好。
+
+### 14.2.2 UNION规则
+>在进行组合时需要注意几条规则。
+>>UNION必须由两条或两条以上的SELECT语句组成，语句之间用关键字UNION分隔（因此，如果组合四条SELECT语句，将要使用三个UNION关键字）。
+>>
+>>UNION中的每个查询必须包含相同的列、表达式或聚集函数（不过，各个列不需要以相同的次序列出）。
+>>
+>>列数据类型必须兼容：类型不必完全相同，但必须是DBMS可以隐含转换的类型（例如，不同的数值类型或不同的日期类型）。
+
+### 14.2.3 包含或取消重复的行
+>使用UNION时，重复的行会被自动取消，这是默认行为，如果想返回所有行，可以使用UNION ALL.
+```
+#Example
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_state IN ('IL','IN','MI')
+UNION ALL
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_name = 'Fun4All';
+```
+> Tips: UNION 与 WHERE
+>>UNION几乎与WHERE完成相同的工作
+>>
+>>但是UNION ALL能匹配全部出现的行（包括重复的行，而WHERE不能）
+
+### 14.2.4 对组合查询结果排序
+>SELECT语句的输出用ORDER BY子句排序。在用UNION组合查询时，只能使用一条ORDER BY子句，它必须位于最后一条SELECT语句之后。对于结果集，不存在用一种方式排序一部分，而又用另一种方式排序另一部分的情况，因此不允许使用多条ORDER BY子句。
+```
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_state IN ('IL','IN','MI')
+UNION
+SELECT cust_name, cust_contact, cust_email
+FROM Customers
+WHERE cust_name = 'Fun4All'
+ORDER BY cust_name, cust_contact;
+```
+
+> 说明：其他类型的UNION
+>>EXCEPT(MINUS)检索只存在第一个表中的行
+>>
+>>INTERSECT 检索两个表中都存在的行
+>>
+>>以上两种UNION很少用到，因为这些结果可以利用联结得到
+>操作多个表
+>>将UNION与别名组合，保证UNION的规则即可
+
+# 15 插入数据
+
+## 15.1 插入数据
+>INSERT用来将行插入（或添加）到数据库表。插入有几种方式：
+>>
+>>插入完整的行；
+>>
+>>插入行的一部分；
+>>
+>>插入某些查询的结果。
+
+### 15.1.1 插入完整的行
+```
+#普通写法，默认对应表的默认列名顺序
+INSERT INTO Customers
+VALUES('1000000006',
+'Toy Land',
+'123 Any Street',
+'New York',
+'NY',
+'11111',
+'USA',
+NULL,
+NULL);
+
+# 更加安全的写法，这样写即使表的结构改变，这条SQL也能很好的执行
+INSERT INTO Customers(cust_id,
+cust_name,
+cust_address,
+cust_city,
+cust_state,
+cust_zip,
+cust_country,
+cust_contact,
+cust_email)
+VALUES('1000000006',
+'Toy Land',
+'123 Any Street',
+'New York',
+'NY',
+'11111',
+'USA',
+NULL,
+NULL);
+```
+\# Tips: INTO关键字是可选的，最好还是提供这个关键字，这样保证SQL代码在DBMS之间的可移植性
 
 
+### 15.1.2 插入部分行
+```
+INSERT INTO Customers(cust_id,
+cust_name,
+cust_address,
+cust_city,
+cust_state,
+cust_zip,
+cust_country)
+VALUES('1000000006',
+'Toy Land',
+'123 Any Street',
+'New York',
+'NY',
+'11111',
+'USA');
+```
+>警告：省略列
+>>如果表的定义允许，则可以在INSERT操作中省略某些列。省略的列必须满足以下某个条件。
+>>>该列定义为允许NULL值（无值或空值）。
+>>>
+>>>在表定义中给出默认值。这表示如果不给出值，将使用默认值。
 
+### 15.1.3 插入检索出的数据
+```
+INSERT INTO Customers(cust_id,
+                      cust_contact,
+                      cust_email,
+                      cust_name,
+                      cust_address,
+                      cust_city,
+                      cust_state,
+                      cust_zip,
+                      cust_country)
+SELECT cust_id,
+      cust_contact,
+      cust_email,
+      cust_name,
+      cust_address,
+      cust_city,
+      cust_state,
+      cust_zip,
+      cust_country
+FROM CustNew;
+```
+>Tips：INSERT SELECT中的列名
+>>为简单起见，这个例子在INSERT和SELECT语句中使用了相同的列名。但是，不一定要求列名匹配。事实上，DBMS一点儿也不关心SELECT返回的列名。它使用的是列的位置，因此SELECT中的第一列（不管其列名）将用来填充表列中指定的第一列，第二列将用来填充表列中指定的第二列，如此等等。
+>Tips：插入多行
+>>INSERT通常只插入一行。要插入多行，必须执行多个INSERT语句。INSERT SELECT是个例外，它可以用一条INSERT插入多行，不管SELECT语句返回多少行，都将被INSERT插入。
 
+## 15.2 从一个表复制到另一个表
+> Description: DB2不支持
+>> DB2不支持SELECT INTO
+> Description: INSERT SELECT 与SELECT INTO
+>> 它们之间的区别是：前者是导出数据，而后者是导入数据
 
+```
+SELECT *
+INTO CustCopy
+FROM Customers;
+```
+>Something needs to know
+>>任何SELECT选项和子句都可以使用，包括WHERE和GROUP BY；
+>>
+>>可利用联结从多个表插入数据；
+>>
+>>不管从多少个表中检索数据，数据都只能插入到一个表中。
+>Tips:进行表的复制
+>>SELECT INTO是试验新SQL语句前进行表复制的很好工具。先进行复制，可在复制的数据上测试SQL代码，而不会影响实际的数据。
 
+# 16 更新和删除数据
+> UPDATE and DELETE
 
+# 16.1 更新数据
+>
 
 
 
