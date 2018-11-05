@@ -414,12 +414,12 @@ WHERE order_num = 20008;
 # 8 使用数据处理函数
 ## 8.1 函数
 > 不同的DBMS对各个函数的名称和语法可能极其不同
+
 |函数|语法|
 |---|----|
 |提取字符串的组成部分|Access使用MD();DB2、Oracle、PostgreSQL和SQLite使用SUBSTR()；MySQL和SQL Server使用SUBSTRING()|
 |数据类型转换|Access和Oracle使用多个函数，每种类型的转换有一个函数；DB2和PostgreSQL使用CAST()；MariaDB、MySQL和SQL Server使用CONVERT()|
-|取当前日期|Access使用NOW()；DB2和PostgreSQL使用CURRENT_DATE；MariaDB和MySQL使用CURDATE()；Oracle使用SYSDATE；SQL Server
-使用GETDATE()；SQLite使用DATE()|
+|取当前日期|Access使用NOW()；DB2和PostgreSQL使用CURRENT_DATE；MariaDB和MySQL使用CURDATE()；Oracle使用SYSDATE；SQL Server使用GETDATE()；SQLite使用DATE()|
 
 ## 8.2使用函数
 > 大多数SQL实现支持一下类型的函数
@@ -440,6 +440,7 @@ ORDER BY vend_name;
 ```
 
 \# 常用的文本处理函数
+
 |函　　数|说　　明|
 |-------|-------|
 |LEFT()（或使用子字符串函数） |返回字符串左边的字符|
@@ -450,7 +451,9 @@ ORDER BY vend_name;
 |RTRIM() |去掉字符串右边的空格|
 |SOUNDEX() |返回字符串的SOUNDEX值|
 |UPPER()（Access使用UCASE()）| 将字符串转换为大写|
+
 \# SOUNDEX() 考虑的是类似发音字符和音节，使得能对字符串进行发音比较而不是字母比较
+
 \# Note: Access 和PostgreSQL不支持SOUNDEX，SQLite需要启用SQLITE_SOUNDEX编译选项
 
 ```
@@ -500,7 +503,9 @@ WHERE strftime('%Y', order_date) = 2012;
 ```
 
 ### 8.2.3 数值处理函数
+
 > 在主要数据库中，数值处理函数是最为统一、一致的
+
 |函  数|  说 明 |
 |-----|--------|
 |ABS()|绝对值|
