@@ -351,13 +351,166 @@ ORDER BY cust_contact;
 # 7 创建计算字段
 
 ## 7.1 计算字段
+\# 一般来说从数据库检索出来的数据并不是应用程序所需要的。
 
+>字段（Field）意思基本与列（Column）相同
 
+\# 提示：客户端与服务器的格式
+\#在SQL语句内可完成的许多转换和格式化工作都可以直接在客户端应用程序内完成。但一般来说，在数据库服务器上完成这些操作比在客户
+端中完成要快得多。
 
+## 7.2 拼接字段
+>拼接 将值联结到一起构成单个值
+>>+或||，在MySQL和MariaDB中，必须使用特殊函数
+```
+#使用+
+SELECT vend_name + ' (' + vend_country + ')'
+FROM Vendors
+ORDER BY vend_name;
+#使用||
+SELECT vend_name || ' (' || vend_country || ')'
+FROM Vendors
+ORDER BY vend_name;
+```
 
+\# Note 使用RTRIM()函数删除空格，RTRIM()只保证删除右侧空格
+>TRIM函数
+>>RTRIM()删除右侧空格
 
+>>LTRIM()删除左侧空格
 
+>>TRIM()删除左右两侧空格
 
+```
+# 使用别名
+SELECT RTRIM(vend_name) + ' (' + RTRIM(vend_country) + ')'
+AS vend_title
+FROM Vendors
+ORDER BY vend_name;
+```
 
+\# AS 通常可选，不过最好使用它，这被视为一条最佳实践
+\# 别名还可以用来扩充原来的名字
+\# 别名也称导出列
 
+## 7.3 执行算术运算
+```
+SELECT prod_id,
+quantity,
+item_price,
+quantity*item_price AS expanded_price
+FROM OrderItems
+WHERE order_num = 20008;
+```
+|操作符|说明|
+|-----|----|
+|+|加|
+|-|减|
+|\*|乘|
+|/|除|
 
+\# Tips SELECT 语句为测试、检验函数和计算提供了很好的方法，例如：SELECT 3\*2; SELECT Trim(' abc'); SELECT Now(); 
+
+# 8 使用数据处理函数
+## 8.1 函数
+> 不同的DBMS对各个函数的名称和语法可能极其不同
+|函数|语法|
+|---|----|
+|提取字符串的组成部分|Access使用MD();DB2、Oracle、PostgreSQL和SQLite使用SUBSTR()；MySQL和SQL Server使用SUBSTRING()|
+|数据类型转换|Access和Oracle使用多个函数，每种类型的转换有一个函数；DB2和PostgreSQL使用CAST()；MariaDB、MySQL和SQL Server使用CONVERT()|
+|取当前日期|Access使用NOW()；DB2和PostgreSQL使用CURRENT_DATE；MariaDB和MySQL使用CURDATE()；Oracle使用SYSDATE；SQL Server
+使用GETDATE()；SQLite使用DATE()|
+
+## 8.2使用函数
+> 大多数SQL实现支持一下类型的函数
+
+>>用于处理文本字符串（如删除或填充值，转换值为大写或小写）的文本函数。
+
+>>用于在数值数据上进行算术操作（如返回绝对值，进行代数运算）的数值函数。
+
+>>用于处理日期和时间值并从这些值中提取特定成分（如返回两个日期之差，检查日期有效性）的日期和时间函数。
+
+>>返回DBMS正使用的特殊信息（如返回用户登录信息）的系统函数。
+
+### 8.2.1 文本处理函数
+```
+SELECT vend_name, UPPER(vend_name) AS vend_name_upcase
+FROM Vendors
+ORDER BY vend_name;
+```
+
+\# 常用的文本处理函数
+|函　　数|说　　明|
+|-------|-------|
+|LEFT()（或使用子字符串函数） |返回字符串左边的字符|
+|LENGTH()（也使用DATALENGTH()或LEN()）| 返回字符串的长度|
+|LOWER()（Access使用LCASE()）| 将字符串转换为小写|
+|LTRIM() |去掉字符串左边的空格|
+|RIGHT()（或使用子字符串函数）| 返回字符串右边的字符|
+|RTRIM() |去掉字符串右边的空格|
+|SOUNDEX() |返回字符串的SOUNDEX值|
+|UPPER()（Access使用UCASE()）| 将字符串转换为大写|
+\# SOUNDEX() 考虑的是类似发音字符和音节，使得能对字符串进行发音比较而不是字母比较
+\# Note: Access 和PostgreSQL不支持SOUNDEX，SQLite需要启用SQLITE_SOUNDEX编译选项
+
+```
+#Michael Green 和 Michelle Green 发音类似，所以能检索出 Michelle Green
+SELECT cust_name, cust_contact
+FROM Customers
+WHERE SOUNDEX(cust_contact) = SOUNDEX('Michael Green');
+```
+
+### 8.2.2 日期和时间处理函数
+```
+# SQL Server
+SELECT order_num
+FROM Orders
+WHERE DATEPART(yy, order_date) = 2012;
+
+# Access
+SELECT order_num
+FROM Orders
+WHERE DATEPART('yyyy', order_date) = 2012;
+
+# PostgreSQL
+SELECT order_num
+FROM Orders
+WHERE DATEPART('yyyy', order_date) = 2012;
+
+# Oracle
+SELECT order_num
+FROM Orders
+WHERE to_number(to_char(order_date, 'YYYY')) = 2012;
+
+# 相对通用的方法，不支持SQL Serer，因为它不支持to_date()函数
+SELECT order_num
+FROM Orders
+WHERE order_date BETWEEN to_date('01-01-2012')
+AND to_date('12-31-2012');
+
+# MySQL和MariaDB
+SELECT order_num
+FROM Orders
+WHERE YEAR(order_date) = 2012;
+
+# SQLite
+SELECT order_num
+FROM Orders
+WHERE strftime('%Y', order_date) = 2012;
+```
+
+### 8.2.3 数值处理函数
+> 在主要数据库中，数值处理函数是最为统一、一致的
+|函  数|  说 明 |
+|-----|--------|
+|ABS()|绝对值|
+|COS()|余弦|
+|EXP()|指数|
+|PI()|圆周率|
+|SIN()|正弦|
+|SQRT()|平方根|
+|TAN|正切|
+
+# 9 汇总数据
+
+## 9.1 聚集函数
