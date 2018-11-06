@@ -1,3 +1,12 @@
+# 0 Basic
+>**Atomicity（原子性）：**一个事务（transaction）中的所有操作，要么全部完成，要么全部不完成，不会结束在中间某个环节。事务在执行过程中发生错误，会被恢复（Rollback）到事务开始前的状态，就像这个事务从来没有执行过一样。
+>
+>**Consistency（一致性）：**在事务开始之前和事务结束以后，数据库的完整性没有被破坏。这表示写入的资料必须完全符合所有的预设规则，这包含资料的精确度、串联性以及后续数据库可以自发性地完成预定的工作。
+>
+>**Isolation（隔离性）：**数据库允许多个并发事务同时对其数据进行读写和修改的能力，隔离性可以防止多个事务并发执行时由于交叉执行而导致数据的不一致。事务隔离分为不同级别，包括读未提交（Read uncommitted）、读提交（read committed）、可重复读（repeatable read）和串行化（Serializable）。
+>
+>**Durability（持久性）：**事务处理结束后，对数据的修改就是永久的，即便系统故障也不会丢失。
+
 # 1 了解SQL
 ## 1.1 数据库基础
 ### 1.1.1 数据库
@@ -1055,7 +1064,435 @@ FROM Customers;
 > UPDATE and DELETE
 
 # 16.1 更新数据
+>2种方式
+>>更新表中的特定行
+>>
+>>更新表中的所有行
+>**Warning:** 不要省略WHERE子句
+>>因为稍不注意就会更新所有行
+>**Tips:** UPDATE与安全
+>>使用UPDATE可能需要特定的权限
+```
+UPDATE Customers
+SET cust_contact = 'Sam Roberts',
+cust_email = 'sam@toyland.com'
+WHERE cust_id = '1000000006';
+```
+>Tips：在UPDATE语句中使用子查询
+>>UPDATE语句中可以使用子查询，使得能用SELECT语句检索出的数据更新列数据。
+>Tips：FROM关键字
+>>有的SQL实现支持在UPDATE语句中使用FROM子句，用一个表的数据更新另一个表的行。
+
+# 16.2 删除数据
+>2种方式
+>>删除表中的特定行
+>>
+>>删除表中的所有行
+>**Warning:** 不要省略WHERE子句
+>>因为稍不注意就会更新所有行
+>**Tips:** DELETE与安全
+>>使用DELETE可能需要特定的权限
+
+```
+DELETE FROM Customers
+WHERE cust_id = '1000000006';
+```
+
+>Tips:友好的外键
+>>存在外键时，DBMS使用它们实施引用完整性。，DBMS通常可以防止删除某个关系需要用到的行
+>Tips:FROM 关键字
+>>在某些SQL实现中，DELETE后的关键字FROM是可选的，但是最好提供这个关键字，以保证可移植性
+>Desription:删除表的内容而不是表
+>>DELETE删除的是表中的行而不是表本身
+>Tips:更快的删除
+>> 删除所有的行，可以使用TRUNCATE TABLE，它的速度更快（因为不会记录数据变动）
+
+## 16.3 更新和删除的指导原则
+>用UPDATE或DELETE时所遵循的重要原则:
+>>除非确实打算更新和删除每一行，否则绝对不要使用不带WHERE子句的UPDATE或DELETE语句。
+>>
+>>保证每个表都有主键（如果忘记这个内容，请参阅第12课），尽可能像WHERE子句那样使用它（可以指定各主键、多个值或值的范围）。
+>>
+>>在UPDATE或DELETE语句使用WHERE子句前，应该先用SELECT进行测试，保证它过滤的是正确的记录，以防编写的WHERE子句不正确。
+>>
+>>使用强制实施引用完整性的数据库（关于这个内容，请参阅第12课），这样DBMS将不允许删除其数据与其他表相关联的行。
+>>
+>>有的DBMS允许数据库管理员施加约束，防止执行不带WHERE子句的UPDATE或DELETE语句。如果所采用的DBMS支持这个特性，应该使用
+它。
+
+
+# 17 创建和操纵表
+## 17.1 创建表
+>必要的信息
+>>新表的名字，在关键字CREATE TABLE之后给出；
+>>
+>>表列的名字和定义，用逗号分隔；
+>>
+>>有的DBMS还要求指定表的位置。
+```
+CREATE TABLE Products
+(
+  prod_id CHAR(10) NOT NULL,
+  vend_id CHAR(10) NOT NULL,
+  prod_name CHAR(254) NOT NULL,
+  prod_price DECIMAL(8,2) NOT NULL,
+  prod_desc VARCHAR(1000) NULL
+);
+```
+>Tips:语句格式化，建议缩进，因为空格会被SQL忽略，而且缩进使得SQL易读
 >
+>替换现有的表
+>
+>创建新的表的时候，指定的表名必须不存在
+
+### 17.1.2 使用NULL值
+>每个列要么是NULL，要么是NOT NULL,如果没有指定NOT NULL 那么NULL就是默认值
+>
+>**Warning:** 多数DBMS默认是NULL，但少数DBMS不是这样的，比如DB2要求指定关键字NULL，否则会出错
+>
+>Tips: 主键不能为NULL
+>
+>**Warning：** NULL值不同于空字符串
+
+### 17.1.3 指定默认值
+>SQL允许指定默认值，默认值在CREATE TABLE语句真的列定义中用关键字DEFAULT指定
+
+```
+CREATE TABLE OrderItems
+(
+  order_num INTEGER NOT NULL,
+  order_item INTEGER NOT NULL,
+  prod_id CHAR(10) NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  item_price DECIMAL(8,2) NOT NULL
+);
+```
+
+>时间戳经常使用默认值
+|DBMS|函数/变量|
+|----|--------|
+|Access|NOW()|
+|DB2|CURRENT_DATE|
+|MySQL|CURRENT_DATE()|
+|Oracle|SYSDATE|
+|PostgreSQL|CURRENT_DATE|
+|SQL Server|GETDATE()|
+|SQLite|date('now')|
+
+## 17.2 更新表
+> ALTER TABLE注意事项：
+>> 理想情况下，不要在表中包含数据时对其进行更新。应该在表的设计过程中充分考虑未来可能的需求，避免今后对表的结构做大改动。
+>>
+>> 所有的DBMS都允许给现有的表增加列，不过对所增加列的数据类型（以及NULL和DEFAULT的使用）有所限制。
+>>
+>> 许多DBMS不允许删除或更改表中的列。
+>>
+>> 多数DBMS允许重新命名表中的列。
+>>
+>> 许多DBMS限制对已经填有数据的列进行更改，对未填有数据的列几乎没有限制。
+
+```
+#增加列
+ALTER TABLE Vendors
+ADD vend_phone CHAR(20);
+
+#删除列
+ALTER TABLE Vendors
+DROP COLUMN vend_phone;
+```
+
+>复杂的表结构更改一般需要手动删除过程，它涉及以下步骤：
+>> 1. 用新的列布局创建一个新表；
+>>
+>> 2. 使用INSERT SELECT语句（关于这条语句的详细介绍，请参阅第15课）从旧表复制数据到新表。有必要的话，可以使用转换函数和计算字段；
+>>
+>> 3. 检验包含所需数据的新表；
+>>
+>> 4. 重命名旧表（如果确定，可以删除它）；
+>>
+>> 5. 用旧表原来的名字重命名新表；
+>>
+>> 6. 根据需要，重新创建触发器、存储过程、索引和外键。
+
+> Description:
+>> SQLite 不支持ALTER TABLE定义主键和外键，这些必须在最初创建表时指定
+>
+> WARNING: 小心使用ALTER TABLE
+>>数据库表的更改不能撤销，如果增加了不需要的列，也许无法删除它们。类似地，如果删除了不应该删除的列，可能会丢失该列中的所有数据。
+
+## 17.3 删除表
+```
+DROP TABLE CustCopy;
+```
+> Tips: 使用关系规则防止意外删除
+>> 许多DBMS允许强制实施有关规则，防止删除与其他表相关联的表。在实施这些规则时，如果对某个表发布一条DROP TABLE语句，且该表是某个关系的组成部分，则DBMS将阻止这条语句执行，直到该关系被删除为止。如果允许，应该启用这些选项，它能防止意外删除有用的表。
+
+## 17.4 重命名表
+>每个DBMS对表重命名的支持有所不同。对于这个操作，不存在严格的标准。
+>>DB2、MariaDB、MySQL、Oracle和PostgreSQL用户使用RENAME语句
+>>
+>>SQL Server用户使用sp_rename存储过程
+>>
+>>SQLite用户使用ALTER TABLE语句
+
+## 18.1 使用视图
+>视图是虚拟的表。与包含数据的表不一样，视图只包含使用时动态检索数据的查询。
+>
+>**Description:** DBMS支持
+>>Microsoft Access不支持视图，没有与SQL视图一致的工作方式。因此，这一课的内容不适用Microsoft Access。
+>>
+>>MySQL从版本5起开始支持视图，因此，这一节的内容不适用较早版本的MySQL。
+>>
+>>SQLite仅支持只读视图，所以视图可以创建，可以读，但其内容不能更改。
+>
+>Tips: 所有DBMS都支持视图的创建
+
+### 18.1.1 为什么使用视图
+>视图的一些常见应用:
+>>重用SQL语句。
+>>
+>>简化复杂的SQL操作。在编写查询后，可以方便地重用它而不必知道其基本查询细节。
+>>
+>>使用表的一部分而不是整个表。
+>>
+>>保护数据。可以授予用户访问表的特定部分的权限，而不是整个表的访问权限。
+>>
+>>更改数据格式和表示。视图可返回与底层表的表示和格式不同的数据。
+>
+>**Warning:** 性能问题
+>> 每次使用视图会执行大量检索。如果使用了复杂的联结和过滤或者嵌套了视图，性能可能会下降的很厉害
+
+### 18.1.2 视图的规则和限制
+>视图创建和使用的一些最常见的规则和限制
+>>与表一样，视图必须唯一命名（不能给视图取与别的视图或表相同的名字）。
+>>
+>>对于可以创建的视图数目没有限制。
+>>
+>>创建视图，必须具有足够的访问权限。这些权限通常由数据库管理人员授予。
+>>
+>>视图可以嵌套，即可以利用从其他视图中检索数据的查询来构造视图。所允许的嵌套层数在不同的DBMS中有所不同（嵌套视图可能会严重降低查询的性能，因此在产品环境中使用之前，应该对其进行全面测试）。
+>>
+>>许多DBMS禁止在视图查询中使用ORDER BY子句。
+>>
+>>有些DBMS要求对返回的所有列进行命名，如果列是计算字段，则需要使用别名（关于列别名的更多信息，请参阅第7课）。
+>>
+>>视图不能索引，也不能有关联的触发器或默认值。
+>>
+>>有些DBMS把视图作为只读的查询，这表示可以从视图检索数据，但不能将数据写回底层表。详情请参阅具体的DBMS文档。
+>>
+>>有些DBMS允许创建这样的视图，它不能进行导致行不再属于视图的插入或更新。例如有一个视图，只检索带有电子邮件地址的顾客。如果更新某个顾客，删除他的电子邮件地址，将使该顾客不再属于视图。这是默认行为，而且是允许的，但有的DBMS可能会防止这种情况发生。
+>
+>Tips: 具体限制和约束应当参阅具体的DBMS文档
+
+## 18.2 创建视图
+```
+CREATE VIEW ProductCustomers AS
+SELECT cust_name, cust_contact, prod_id
+FROM Customers, Orders, OrderItems
+WHERE Customers.cust_id = Orders.cust_id
+AND OrderItems.order_num = Orders.order_num;
+```
+> Tips: 创建可重用的视图
+>> 创建不绑定特定数据的视图是个比较好的选择
+>>
+>>覆盖或者更新视图应当先删除旧的视图
+
+### 18.2.1 利用视图简化复杂的联结
+```
+# 创建视图
+CREATE VIEW ProductCustomers AS
+SELECT cust_name, cust_contact, prod_id
+FROM Customers, Orders, OrderItems
+WHERE Customers.cust_id = Orders.cust_id
+AND OrderItems.order_num = Orders.order_num;
+# 检索视图
+SELECT cust_name, cust_contact
+FROM ProductCustomers
+WHERE prod_id = 'RGAN01';
+```
+
+### 18.2.2 用视图重新格式化检索出的数据
+```
+CREATE VIEW VendorLocations AS
+SELECT RTRIM(vend_name) + ' (' + RTRIM(vend_country) + ')'
+      AS vend_title
+FROM Vendors;
+```
+### 18.2.3 用视图过滤不想要的数据
+```
+CREATE VIEW CustomerEMailList AS
+SELECT cust_id, cust_name, cust_email
+FROM Customers
+WHERE cust_email IS NOT NULL;
+```
+> 视图WHERE子句和SELECT WHERE子句
+>> 检索视图时使用了WHERE子句，则两组子句将自动组合
+
+### 18.2.4 使用视图与计算字段
+```
+CREATE VIEW OrderItemsExpanded AS
+SELECT order_num,
+      prod_id,
+      quantity,
+      item_price,
+      quantity*item_price AS expanded_price
+FROM OrderItems;
+```
+
+# 19 存储过程
+
+## 19.1 存储过程
+>简单来说，存储过程就是为以后使用而保存的一条或多条SQL语句。可将其视为批文件，虽然它们的作用不仅限于批处理。
+>
+>Description: 具体DBMS的支持
+>>
+>> Microsoft Access和SQLite不支持存储过程。因此，本课的内容不适用它们。
+>>
+>> MySQL 5已经支持存储过程。因此，本课的内容不适用MySQL较早的版本。
+>
+>More Content: 需要很大的篇幅，暂不赘述
+
+## 19.2 为什么使用存储过程
+>一些主要的理由：
+>>通过把处理封装在一个易用的单元中，可以简化复杂的操作（如前面例子所述）。
+>>
+>>由于不要求反复建立一系列处理步骤，因而保证了数据的一致性。如果所有开发人员和应用程序都使用同一存储过程，则所使用的代码都是相同的。
+>>这一点的延伸就是防止错误。需要执行的步骤越多，出错的可能性就越大。防止错误保证了数据的一致性。
+>>
+>>简化对变动的管理。如果表名、列名或业务逻辑（或别的内容）有变化，那么只需要更改存储过程的代码。使用它的人员甚至不需要知道这些变化。
+>>这一点的延伸就是安全性。通过存储过程限制对基础数据的访问，减少了数据讹误（无意识的或别的原因所导致的数据讹误）的机会。
+>>
+>>因为存储过程通常以编译过的形式存储，所以DBMS处理命令的工作较少，提高了性能。
+>>
+>>存在一些只能用在单个请求中的SQL元素和特性，存储过程可以使用它们来编写功能更强更灵活的代码。
+>>
+>>In Conclusion: 简单、安全、高效
+>
+>在将SQL代码转换为存储过程前，也必须知道它的一些缺陷:
+>>
+>>不同的DBMS中的存储过程语法有所不同
+>>
+>>编写存储过程比编写基本SQL语句复杂，需要更高的技能，更丰富的经验。
+>
+>Description: 大多数DBMS将编写存储过程所需的安全和访问权限与执行存储过程所需的安全和访问权限区分开来。这是好事情，即使你不能（或不想）编写自己的存储过程，也仍然可以在适当的时候执行别的存储过程。
+
+## 19.3 执行存储过程
+```
+EXECUTE AddNewProduct( 'JTS01',
+                      'Stuffed Eiffel Tower',
+                      6.49,
+                      'Plush stuffed toy with the text La
+Tour Eiffel in red white and blue' )
+```
+
+>存储过程所完成的工作：
+>>验证传递的数据，保证所有4个参数都有值；
+>>
+>>生成用作主键的唯一ID；
+>>
+>>将新产品插入Products表，在合适的列中存储生成的主键和传递的数据。
+>
+>对于具体的DBMS，可能包括以下的执行选择：
+>>
+>>参数可选，具有不提供参数时的默认值；
+>>
+>>不按次序给出参数，以“参数=值”的方式给出参数值。
+>>
+>>输出参数，允许存储过程在正执行的应用程序中更新所用的参数。
+>>
+>>用SELECT语句检索数据。
+>>
+>>返回代码，允许存储过程返回一个值到正在执行的应用程序
+
+## 19.4 创建存储过程
+```
+# Oracle 定义
+CREATE PROCEDURE MailingListCount (
+  ListCount OUT INTEGER
+)
+IS
+v_rows INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO v_rows
+    FROM Customers
+    WHERE NOT cust_email IS NULL;
+    ListCount := v_rows;
+END;
+
+# 参数
+#OUT   表示   返回值
+#IN    表示   参数
+#INOUT 表示   既是参数也会返回
+
+#调用
+var ReturnValue NUMBER
+EXEC MailingListCount(:ReturnValue);
+SELECT ReturnValue;
+
+
+#SQL Server
+CREATE PROCEDURE MailingListCount
+AS
+DECLARE @cnt INTEGER
+SELECT @cnt = COUNT(*)
+FROM Customers
+WHERE NOT cust_email IS NULL;
+RETURN @cnt;
+
+# 调用
+DECLARE @ReturnValue INT
+EXECUTE @ReturnValue=MailingListCount;
+SELECT @ReturnValue;
+
+# 插入新的订单
+CREATE PROCEDURE NewOrder @cust_id CHAR(10)
+AS
+-- Declare variable for order number
+DECLARE @order_num INTEGER
+-- Get current highest order number
+SELECT @order_num=MAX(order_num)
+FROM Orders
+-- Determine next order number
+SELECT @order_num=@order_num+1
+-- Insert new order
+INSERT INTO Orders(order_num, order_date, cust_id)
+VALUES(@order_num, GETDATE(), @cust_id)
+-- Return order number
+```
+
+>Description：注释代码
+>>所有的DBMS都支持--
+>
+>Tips:
+>>大多数DBMS都支持由DBMS生成订单号这种功能
+>>
+>>SQL Server中称这些自动增量的列为标识字段（identity field）
+>>
+>>其他DBMS称之为自动编号（auto number）或序列（sequence）。传递给此过程的参数也是一个，即下订单的顾客ID。
+>>
+>>DBMS对日期使用默认值（GETDATE()函数），订单号自动生成。
+>>
+>>怎样才能得到这个自动生成的ID？在SQL Server上可在全局变量@@IDENTITY中得到，它返回到调用程序（这里使用SELECT语句）
+
+# 20 管理事务处理
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
