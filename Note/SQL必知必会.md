@@ -30,12 +30,12 @@
 ### 1.1.6 外键
 
 ## 1.2 什么是SQL
-SQL 有如下优点：
->SQL不是某个特定数据库供应商专有的语言。几乎所有重要的DBMS都支持SQL，所以学习此语言使你几乎能与所有数据库打交道。
->
->SQL简单易学。它的语句全都是由有很强描述性的英语单词组成，而且这些单词的数目不多。
->
->SQL虽然看上去很简单，但实际上是一种强有力的语言，灵活使用其语言元素，可以进行非常复杂和高级的数据库操作。
+>SQL 有如下优点：
+>>SQL不是某个特定数据库供应商专有的语言。几乎所有重要的DBMS都支持SQL，所以学习此语言使你几乎能与所有数据库打交道。
+>>
+>>SQL简单易学。它的语句全都是由有很强描述性的英语单词组成，而且这些单词的数目不多。
+>>
+>>SQL虽然看上去很简单，但实际上是一种强有力的语言，灵活使用其语言元素，可以进行非常复杂和高级的数据库操作。
 
 \# 标准SQL由ANSI标准委员会管理，从而称为ANSI SQL。所有主要的DBMS，即使有自己的扩展，也都支持ANSI SQL。各个实现有自己的名称，如PL/SQL、Transact-SQL 等。
 
@@ -45,13 +45,13 @@ SQL 有如下优点：
 # 2 检索数据
 ## 2.1 Select 语句
 >keyword 
->
->作为SQL组成部分的保留字。关键字不能用作表或列的名字
+>>作为SQL组成部分的保留字。关键字不能用作表或列的名字
 
 ## 2.2 检索单个列
 ```
 select column_name form table;
 ```
+
 \#语句结尾分号可加可不加，但是加了一定没有坏处
 
 \#关于大小写： SQL语句是不区分大小写的，通常对SQL语句采用大写，对列名和表名采用小写。不过列名和表名可能区分大小写，这取决于DBMS的具体配置。
@@ -59,16 +59,19 @@ select column_name form table;
 \#关于空格:所有的空格都会被忽略。SQL语句可以写成一行或者多行。多数开发者认为将SQL语句分成多行更容易阅读和调试。
 
 ## 2.3 检索多个列
+
 ```
 SELECT prod_id,prod_name,prod_price
 FROM Products;
 ```
 
 ## 2.4 检索所有列
+
 ```
 SELECT *
 FROM Products;
 ```
+
 >Warning:不建议使用通配符\*,应为这会降低程序的性能
 
 ## 2.5 检索不同的值
@@ -266,17 +269,21 @@ FROM Products
 WHERE vend_id = 'DLL01' OR vend_id = ‘BRS01’
 AND prod_price >= 10;
 ```
+
 >应当使用圆括号消除歧义
+
 ```
 SELECT prod_name, prod_price
 FROM Products
 WHERE (vend_id = 'DLL01' OR vend_id = ‘BRS01’)
 AND prod_price >= 10;
 ```
+
 \# Tips:任何时候使用具有AND和OR操作符的WHERE子句，都应该使用圆括号明确地分组操作符。不要过分依赖默认求值顺序，即使它确实如你希望的那样。使用圆括号没有什么坏处，它能消除歧义。
 
 ## 5.2 IN 操作符
 >WHERE子句中用来指定要匹配值的清单的关键字，功能与OR相当。
+
 ```
 SELECT prod_name, prod_price
 FROM Products
@@ -297,6 +304,7 @@ ORDER BY prod_name;
 >说明：MariaDB中的NOT
 >
 >MariaDB支持使用NOT否定IN、BETWEEN和EXISTS子句。大多数DBMS允许使用NOT否定任何条件。
+
 ```
 SELECT prod_name
 FROM Products
@@ -312,7 +320,7 @@ ORDER BY prod_name;
 >>用来匹配值的一部分的特殊字符。
 >搜索模式（search pattern）
 >>由字面值、通配符或两者组合构成的搜索条件。
->
+
 \# Note 通配符本身实际上是SQL的WHERE子句中有特殊含义的字符，SQL支持几种通配符。为在搜索子句中使用通配符，必须使用*LIKE*操作符。LIKE指
 示DBMS，后跟的搜索模式利用通配符匹配而不是简单的相等匹配进行比较。
 
@@ -321,6 +329,7 @@ ORDER BY prod_name;
 
 ### 6.1.1 百分号 （%） 通配符
 >百分号表示任何字符出现任意次数（包括0次出现）
+
 ```
 SELECT prod_id, prod_name
 FROM Products
@@ -336,20 +345,25 @@ WHERE prod_name LIKE 'Fish%';
 >DB2不支持通配符_
 >
 >Access使用?而不是_
+
 ```
 SELECT prod_id, prod_name
 FROM Products
 WHERE prod_name LIKE '__ inch teddy bear';
 ```
+
 ### 6.1.3 方括号([])通配符
 >方括号用来指定一个字符集，必须匹配指定位置的一个字符
+
 \# 目前只有SQL Server和Access支持
+
 ```
 SELECT cust_contact
 FROM Customers
 WHERE cust_contact LIKE '[^JM]%'
 ORDER BY cust_contact;
 ```
+
 \# 采用^来否定，Access中采用!来否定，而不是^
 
 ## 6.2 使用通配符的技巧
@@ -368,12 +382,14 @@ ORDER BY cust_contact;
 >字段（Field）意思基本与列（Column）相同
 
 \# 提示：客户端与服务器的格式
+
 \#在SQL语句内可完成的许多转换和格式化工作都可以直接在客户端应用程序内完成。但一般来说，在数据库服务器上完成这些操作比在客户
 端中完成要快得多。
 
 ## 7.2 拼接字段
 >拼接 将值联结到一起构成单个值
 >>+或||，在MySQL和MariaDB中，必须使用特殊函数
+
 ```
 #使用+
 SELECT vend_name + ' (' + vend_country + ')'
@@ -386,6 +402,7 @@ ORDER BY vend_name;
 ```
 
 \# Note 使用RTRIM()函数删除空格，RTRIM()只保证删除右侧空格
+
 >TRIM函数
 >>RTRIM()删除右侧空格
 >>
@@ -406,6 +423,7 @@ ORDER BY vend_name;
 \# 别名也称导出列
 
 ## 7.3 执行算术运算
+
 ```
 SELECT prod_id,
 quantity,
@@ -414,6 +432,7 @@ quantity*item_price AS expanded_price
 FROM OrderItems
 WHERE order_num = 20008;
 ```
+
 |操作符|说明|
 |-----|----|
 |+|加|
@@ -425,6 +444,7 @@ WHERE order_num = 20008;
 
 # 8 使用数据处理函数
 ## 8.1 函数
+
 > 不同的DBMS对各个函数的名称和语法可能极其不同
 
 |函数|语法|
@@ -434,6 +454,7 @@ WHERE order_num = 20008;
 |取当前日期|Access使用NOW()；DB2和PostgreSQL使用CURRENT_DATE；MariaDB和MySQL使用CURDATE()；Oracle使用SYSDATE；SQL Server使用GETDATE()；SQLite使用DATE()|
 
 ## 8.2使用函数
+
 > 大多数SQL实现支持一下类型的函数
 >>用于处理文本字符串（如删除或填充值，转换值为大写或小写）的文本函数。
 >>
@@ -444,6 +465,7 @@ WHERE order_num = 20008;
 >>返回DBMS正使用的特殊信息（如返回用户登录信息）的系统函数。
 
 ### 8.2.1 文本处理函数
+
 ```
 SELECT vend_name, UPPER(vend_name) AS vend_name_upcase
 FROM Vendors
@@ -475,6 +497,7 @@ WHERE SOUNDEX(cust_contact) = SOUNDEX('Michael Green');
 ```
 
 ### 8.2.2 日期和时间处理函数
+
 ```
 # SQL Server
 SELECT order_num
@@ -549,6 +572,7 @@ WHERE strftime('%Y', order_date) = 2012;
 |SUM()|列值之和|SUM()函数忽略列值为NULL的行|
 
 ## 9.2 聚集不同的值
+
 >对所有行执行计算，指定ALL参数或不指定参数（因为ALL是默认行为）。
 >
 > 只包含不同的值，指定DISTINCT
@@ -556,6 +580,7 @@ WHERE strftime('%Y', order_date) = 2012;
 \# Access在聚集函数中不支持DISTINCT。要在Access得到类似的结果，需要使用子查询把DISTINCT数据返回到外部SELECT COUNT(\*)语句。
 
 \# DISTINCT 只能用于COUNT(),不能用于COUNT(\*)
+
 ```
 SELECT AVG(DISTINCT prod_price) AS avg_price    # 不要在Access中这样使用
 FROM Products
@@ -563,6 +588,7 @@ WHERE vend_id = 'DLL01';
 ```
 
 ## 9.3 组合聚集函数
+
 ```
 SELECT COUNT(*) AS num_items,
 MIN(prod_price) AS price_min,
@@ -570,20 +596,24 @@ MAX(prod_price) AS price_max,
 AVG(prod_price) AS price_avg
 FROM Products;
 ```
+
 \# 别名最好不要取表中的列名
 
 # 10 分组数据
 > GROUP、HAVING子句
 
 ## 10.1 分组数据
+
 ```
 SELECT COUNT(*) AS num_prods
 FROM Products
 WHERE vend_id = 'DLL01';
 ```
+
 >如果要对多个vend_id统计总数，考虑一下方案
 
 ## 10.2 创建分组
+
 ```
 SELECT vend_id, COUNT(*) AS num_prods
 FROM Products
@@ -674,6 +704,7 @@ WHERE cust_id IN (SELECT cust_id
 3. 子查询并不是检索这类数据的最佳方法，参见chapter 12
 
 ## 11.3 作为计算字段使用子查询
+
 ```
 #统计每个顾客的order数量
 SELECT cust_name,
@@ -709,6 +740,7 @@ WHERE Vendors.vend_id = Products.vend_id;
 \# 记得完全限定表名
 
 ### 12.2.1 WHERE子句的重要性
+
 >**笛卡尔积**
 >
 >由没有联结条件的表关系返回的结果为笛卡儿积。检索出的行的数目将是第一个表中的行数乘以第二个表中的行数。
@@ -720,14 +752,17 @@ FROM Vendors, Products;
 ```
 
 ### 12.2.2 内联结
+
 ```
 SELECT vend_name, prod_name, prod_price
 FROM Vendors INNER JOIN Products
 ON Vendors.vend_id = Products.vend_id;
 ```
+
 \# ANSI SQL规范首选INNER JOIN语法
 
 ### 12.2.3 联结多个表
+
 ```
 SELECT prod_name, vend_name, prod_price, quantity
 FROM OrderItems, Products, Vendors
@@ -763,6 +798,7 @@ AND prod_id = 'RGAN01';
 
 # 13 创建高级联结
 ## 13.1 使用表别名
+
 ```
 #使用别名
 SELECT cust_name, cust_contact
@@ -775,6 +811,7 @@ AND prod_id = 'RGAN01';
 \# **Warning:** Oracle 不支持AS关键字，简单指定列名即可（应该使用Customers C，而不是Customers AS C）
 
 ## 13.2 使用不同类型的联结
+
 >不同类型的**联结**
 >> **内联结**  条件可以是不等
 >> **等值联结** 条件必须是相等，可以看做内联结的子集
@@ -783,6 +820,7 @@ AND prod_id = 'RGAN01';
 >> **外联结**
 
 ### 13.2.1 自联结
+
 ```
 # 子查询
 SELECT cust_id, cust_name, cust_contact
@@ -798,6 +836,7 @@ AND c2.cust_contact = 'Jim Jones';
 ```
 
 ### 13.2.2 自然联结
+
 >无论何时对表进行联结，应该至少有一列不止出现在一个表中（被联结的列）。标准的联结（前一课中介绍的内联结）返回所有数据，相同的列甚至多次出现。自然联结排除多次出现，使每一列只返回一次。
 >
 >系统不会完成这项工作，一般由自己手动完成（对一个表使用通配符SELECT \*，而对其他表的列使用明确的子集来完成）
@@ -816,6 +855,7 @@ AND prod_id = 'RGAN01';
 
 ### 13.2.3 外联结
 #### 13.2.3.1 左外联结
+
 ```
 SELECT Customers.cust_id, Orders.order_num
 FROM Customers LEFT OUTER JOIN Orders
@@ -825,15 +865,19 @@ ON Customers.cust_id = Orders.cust_id;
 ```
 
 #### 13.2.3.2 右外联结
+
 ```
 SELECT Customers.cust_id, Orders.order_num
 FROM Customers RIGHT OUTER JOIN Orders
 ON Orders.cust_id = Customers.cust_id;
 ```
+
 \# 可以转化成左外联结
 
 \# SQLite 不支持RIGHT OUTER JOIN ,因为左、右外联结可以相互转换
+
 #### 13.2.3.3 全外联结
+
 ```
 SELECT Customers.cust_id, Orders.order_num
 FROM Orders FULL OUTER JOIN Customers
@@ -843,6 +887,7 @@ ON Orders.cust_id = Customers.cust_id;
 \# **Warning:** Access、MariaDB、MySQL、Open Office Base 或SQLite不支持FULL OUTER JOIN语法
 
 ## 13.3 使用带聚集函数的联结
+
 ```
 SELECT Customers.cust_id,
 COUNT(Orders.order_num) AS num_ord
@@ -851,9 +896,8 @@ ON Customers.cust_id = Orders.cust_id
 GROUP BY Customers.cust_id;
 ```
 
-
-
 ## 13.4 使用联结和联结条件
+
 >注意所使用的联结类型。一般我们使用内联结，但使用外联结也有效。
 >
 >关于确切的联结语法，应该查看具体的文档，看相应的DBMS支持何种语法（大多数DBMS使用这两课中描述的某种语法）。
@@ -865,9 +909,11 @@ GROUP BY Customers.cust_id;
 >在一个联结中可以包含多个表，甚至可以对每个联结采用不同的联结类型。虽然这样做是合法的，一般也很有用，但应该在一起测试它们前分别测试每个联结。这会使故障排除更为简单。
 
 # 14 组合查询
+
 >如何利用UNION操作符将多条SELECT语句组合成一个结果集?
 
 ## 14.1 组合查询
+
 >主要有两种情况需要使用组合查询：
 >>在一个查询中从不同的表返回结构数据；
 >>
@@ -876,6 +922,7 @@ GROUP BY Customers.cust_id;
 ## 14.2 创建组合查询
 
 ### 14.2.1 使用UNION
+
 ```
 # 使用UNION
 SELECT cust_name, cust_contact, cust_email
@@ -892,6 +939,7 @@ FROM Customers
 WHERE cust_state IN ('IL','IN','MI')
 OR cust_name = 'Fun4All';
 ```
+
 \# Tips:使用UNION组合SELECT语句的数目，SQL没有标准限制。但是，最好是参考一下具体的DBMS文档，了解它是否对UNION能组合的最大语句数目有限制。
 
 \# **Warning:** 多数好的DBMS使用内部查询优化程序，在处理各条SELECT语句前组合它们。理论上讲，这意味着从性能上看使用多条WHERE子句条件还
@@ -899,6 +947,7 @@ OR cust_name = 'Fun4All';
 种工作得更好。
 
 ### 14.2.2 UNION规则
+
 >在进行组合时需要注意几条规则。
 >>UNION必须由两条或两条以上的SELECT语句组成，语句之间用关键字UNION分隔（因此，如果组合四条SELECT语句，将要使用三个UNION关键字）。
 >>
@@ -907,7 +956,9 @@ OR cust_name = 'Fun4All';
 >>列数据类型必须兼容：类型不必完全相同，但必须是DBMS可以隐含转换的类型（例如，不同的数值类型或不同的日期类型）。
 
 ### 14.2.3 包含或取消重复的行
+
 >使用UNION时，重复的行会被自动取消，这是默认行为，如果想返回所有行，可以使用UNION ALL.
+
 ```
 #Example
 SELECT cust_name, cust_contact, cust_email
@@ -918,13 +969,16 @@ SELECT cust_name, cust_contact, cust_email
 FROM Customers
 WHERE cust_name = 'Fun4All';
 ```
+
 > Tips: UNION 与 WHERE
 >>UNION几乎与WHERE完成相同的工作
 >>
 >>但是UNION ALL能匹配全部出现的行（包括重复的行，而WHERE不能）
 
 ### 14.2.4 对组合查询结果排序
+
 >SELECT语句的输出用ORDER BY子句排序。在用UNION组合查询时，只能使用一条ORDER BY子句，它必须位于最后一条SELECT语句之后。对于结果集，不存在用一种方式排序一部分，而又用另一种方式排序另一部分的情况，因此不允许使用多条ORDER BY子句。
+
 ```
 SELECT cust_name, cust_contact, cust_email
 FROM Customers
@@ -948,6 +1002,7 @@ ORDER BY cust_name, cust_contact;
 # 15 插入数据
 
 ## 15.1 插入数据
+
 >INSERT用来将行插入（或添加）到数据库表。插入有几种方式：
 >>
 >>插入完整的行；
@@ -957,6 +1012,7 @@ ORDER BY cust_name, cust_contact;
 >>插入某些查询的结果。
 
 ### 15.1.1 插入完整的行
+
 ```
 #普通写法，默认对应表的默认列名顺序
 INSERT INTO Customers
@@ -990,10 +1046,12 @@ VALUES('1000000006',
 NULL,
 NULL);
 ```
+
 \# Tips: INTO关键字是可选的，最好还是提供这个关键字，这样保证SQL代码在DBMS之间的可移植性
 
 
 ### 15.1.2 插入部分行
+
 ```
 INSERT INTO Customers(cust_id,
 cust_name,
@@ -1010,6 +1068,7 @@ VALUES('1000000006',
 '11111',
 'USA');
 ```
+
 >警告：省略列
 >>如果表的定义允许，则可以在INSERT操作中省略某些列。省略的列必须满足以下某个条件。
 >>>该列定义为允许NULL值（无值或空值）。
@@ -1017,6 +1076,7 @@ VALUES('1000000006',
 >>>在表定义中给出默认值。这表示如果不给出值，将使用默认值。
 
 ### 15.1.3 插入检索出的数据
+
 ```
 INSERT INTO Customers(cust_id,
                       cust_contact,
@@ -1038,12 +1098,14 @@ SELECT cust_id,
       cust_country
 FROM CustNew;
 ```
+
 >Tips：INSERT SELECT中的列名
 >>为简单起见，这个例子在INSERT和SELECT语句中使用了相同的列名。但是，不一定要求列名匹配。事实上，DBMS一点儿也不关心SELECT返回的列名。它使用的是列的位置，因此SELECT中的第一列（不管其列名）将用来填充表列中指定的第一列，第二列将用来填充表列中指定的第二列，如此等等。
 >Tips：插入多行
 >>INSERT通常只插入一行。要插入多行，必须执行多个INSERT语句。INSERT SELECT是个例外，它可以用一条INSERT插入多行，不管SELECT语句返回多少行，都将被INSERT插入。
 
 ## 15.2 从一个表复制到另一个表
+
 > Description: DB2不支持
 >> DB2不支持SELECT INTO
 > Description: INSERT SELECT 与SELECT INTO
@@ -1054,6 +1116,7 @@ SELECT *
 INTO CustCopy
 FROM Customers;
 ```
+
 >Something needs to know
 >>任何SELECT选项和子句都可以使用，包括WHERE和GROUP BY；
 >>
@@ -1064,9 +1127,11 @@ FROM Customers;
 >>SELECT INTO是试验新SQL语句前进行表复制的很好工具。先进行复制，可在复制的数据上测试SQL代码，而不会影响实际的数据。
 
 # 16 更新和删除数据
+
 > UPDATE and DELETE
 
 # 16.1 更新数据
+
 >2种方式
 >>更新表中的特定行
 >>
@@ -1075,18 +1140,21 @@ FROM Customers;
 >>因为稍不注意就会更新所有行
 >**Tips:** UPDATE与安全
 >>使用UPDATE可能需要特定的权限
+
 ```
 UPDATE Customers
 SET cust_contact = 'Sam Roberts',
 cust_email = 'sam@toyland.com'
 WHERE cust_id = '1000000006';
 ```
+
 >Tips：在UPDATE语句中使用子查询
 >>UPDATE语句中可以使用子查询，使得能用SELECT语句检索出的数据更新列数据。
 >Tips：FROM关键字
 >>有的SQL实现支持在UPDATE语句中使用FROM子句，用一个表的数据更新另一个表的行。
 
 # 16.2 删除数据
+
 >2种方式
 >>删除表中的特定行
 >>
@@ -1111,6 +1179,7 @@ WHERE cust_id = '1000000006';
 >> 删除所有的行，可以使用TRUNCATE TABLE，它的速度更快（因为不会记录数据变动）
 
 ## 16.3 更新和删除的指导原则
+
 >用UPDATE或DELETE时所遵循的重要原则:
 >>除非确实打算更新和删除每一行，否则绝对不要使用不带WHERE子句的UPDATE或DELETE语句。
 >>
@@ -1126,12 +1195,14 @@ WHERE cust_id = '1000000006';
 
 # 17 创建和操纵表
 ## 17.1 创建表
+
 >必要的信息
 >>新表的名字，在关键字CREATE TABLE之后给出；
 >>
 >>表列的名字和定义，用逗号分隔；
 >>
 >>有的DBMS还要求指定表的位置。
+
 ```
 CREATE TABLE Products
 (
@@ -1142,6 +1213,7 @@ CREATE TABLE Products
   prod_desc VARCHAR(1000) NULL
 );
 ```
+
 >Tips:语句格式化，建议缩进，因为空格会被SQL忽略，而且缩进使得SQL易读
 >
 >替换现有的表
@@ -1149,6 +1221,7 @@ CREATE TABLE Products
 >创建新的表的时候，指定的表名必须不存在
 
 ### 17.1.2 使用NULL值
+
 >每个列要么是NULL，要么是NOT NULL,如果没有指定NOT NULL 那么NULL就是默认值
 >
 >**Warning:** 多数DBMS默认是NULL，但少数DBMS不是这样的，比如DB2要求指定关键字NULL，否则会出错
@@ -1158,6 +1231,7 @@ CREATE TABLE Products
 >**Warning：** NULL值不同于空字符串
 
 ### 17.1.3 指定默认值
+
 >SQL允许指定默认值，默认值在CREATE TABLE语句真的列定义中用关键字DEFAULT指定
 
 ```
@@ -1183,6 +1257,7 @@ CREATE TABLE OrderItems
 |SQLite|date('now')|
 
 ## 17.2 更新表
+
 > ALTER TABLE注意事项：
 >> 理想情况下，不要在表中包含数据时对其进行更新。应该在表的设计过程中充分考虑未来可能的需求，避免今后对表的结构做大改动。
 >>
@@ -1224,13 +1299,16 @@ DROP COLUMN vend_phone;
 >>数据库表的更改不能撤销，如果增加了不需要的列，也许无法删除它们。类似地，如果删除了不应该删除的列，可能会丢失该列中的所有数据。
 
 ## 17.3 删除表
+
 ```
 DROP TABLE CustCopy;
 ```
+
 > Tips: 使用关系规则防止意外删除
 >> 许多DBMS允许强制实施有关规则，防止删除与其他表相关联的表。在实施这些规则时，如果对某个表发布一条DROP TABLE语句，且该表是某个关系的组成部分，则DBMS将阻止这条语句执行，直到该关系被删除为止。如果允许，应该启用这些选项，它能防止意外删除有用的表。
 
 ## 17.4 重命名表
+
 >每个DBMS对表重命名的支持有所不同。对于这个操作，不存在严格的标准。
 >>DB2、MariaDB、MySQL、Oracle和PostgreSQL用户使用RENAME语句
 >>
@@ -1239,6 +1317,7 @@ DROP TABLE CustCopy;
 >>SQLite用户使用ALTER TABLE语句
 
 ## 18.1 使用视图
+
 >视图是虚拟的表。与包含数据的表不一样，视图只包含使用时动态检索数据的查询。
 >
 >**Description:** DBMS支持
@@ -1251,6 +1330,7 @@ DROP TABLE CustCopy;
 >Tips: 所有DBMS都支持视图的创建
 
 ### 18.1.1 为什么使用视图
+
 >视图的一些常见应用:
 >>重用SQL语句。
 >>
@@ -1266,6 +1346,7 @@ DROP TABLE CustCopy;
 >> 每次使用视图会执行大量检索。如果使用了复杂的联结和过滤或者嵌套了视图，性能可能会下降的很厉害
 
 ### 18.1.2 视图的规则和限制
+
 >视图创建和使用的一些最常见的规则和限制
 >>与表一样，视图必须唯一命名（不能给视图取与别的视图或表相同的名字）。
 >>
@@ -1288,6 +1369,7 @@ DROP TABLE CustCopy;
 >Tips: 具体限制和约束应当参阅具体的DBMS文档
 
 ## 18.2 创建视图
+
 ```
 CREATE VIEW ProductCustomers AS
 SELECT cust_name, cust_contact, prod_id
@@ -1295,12 +1377,14 @@ FROM Customers, Orders, OrderItems
 WHERE Customers.cust_id = Orders.cust_id
 AND OrderItems.order_num = Orders.order_num;
 ```
+
 > Tips: 创建可重用的视图
 >> 创建不绑定特定数据的视图是个比较好的选择
 >>
 >>覆盖或者更新视图应当先删除旧的视图
 
 ### 18.2.1 利用视图简化复杂的联结
+
 ```
 # 创建视图
 CREATE VIEW ProductCustomers AS
@@ -1315,23 +1399,28 @@ WHERE prod_id = 'RGAN01';
 ```
 
 ### 18.2.2 用视图重新格式化检索出的数据
+
 ```
 CREATE VIEW VendorLocations AS
 SELECT RTRIM(vend_name) + ' (' + RTRIM(vend_country) + ')'
       AS vend_title
 FROM Vendors;
 ```
+
 ### 18.2.3 用视图过滤不想要的数据
+
 ```
 CREATE VIEW CustomerEMailList AS
 SELECT cust_id, cust_name, cust_email
 FROM Customers
 WHERE cust_email IS NOT NULL;
 ```
+
 > 视图WHERE子句和SELECT WHERE子句
 >> 检索视图时使用了WHERE子句，则两组子句将自动组合
 
 ### 18.2.4 使用视图与计算字段
+
 ```
 CREATE VIEW OrderItemsExpanded AS
 SELECT order_num,
@@ -1345,6 +1434,7 @@ FROM OrderItems;
 # 19 存储过程
 
 ## 19.1 存储过程
+
 >简单来说，存储过程就是为以后使用而保存的一条或多条SQL语句。可将其视为批文件，虽然它们的作用不仅限于批处理。
 >
 >Description: 具体DBMS的支持
@@ -1356,6 +1446,7 @@ FROM OrderItems;
 >More Content: 需要很大的篇幅，暂不赘述
 
 ## 19.2 为什么使用存储过程
+
 >一些主要的理由：
 >>通过把处理封装在一个易用的单元中，可以简化复杂的操作（如前面例子所述）。
 >>
@@ -1380,6 +1471,7 @@ FROM OrderItems;
 >Description: 大多数DBMS将编写存储过程所需的安全和访问权限与执行存储过程所需的安全和访问权限区分开来。这是好事情，即使你不能（或不想）编写自己的存储过程，也仍然可以在适当的时候执行别的存储过程。
 
 ## 19.3 执行存储过程
+
 ```
 EXECUTE AddNewProduct( 'JTS01',
                       'Stuffed Eiffel Tower',
@@ -1408,6 +1500,7 @@ Tour Eiffel in red white and blue' )
 >>返回代码，允许存储过程返回一个值到正在执行的应用程序
 
 ## 19.4 创建存储过程
+
 ```
 # Oracle 定义
 CREATE PROCEDURE MailingListCount (
@@ -1478,9 +1571,11 @@ VALUES(@order_num, GETDATE(), @cust_id)
 >>怎样才能得到这个自动生成的ID？在SQL Server上可在全局变量@@IDENTITY中得到，它返回到调用程序（这里使用SELECT语句）
 
 # 20 管理事务处理
+
 >如何利用COMMIT和ROLLBACK语句管理事务处理。
 
 # 20.1 事务处理
+
 >关于事务处理需要知道的几个术语：
 >>事务（transaction）指一组SQL语句；
 >>
@@ -1497,9 +1592,11 @@ VALUES(@order_num, GETDATE(), @cust_id)
 >>CREATE/DROP/SELECT,事务处理的过程中可以使用这些语句，但是这些操作不会撤销
 
 ## 20.2 控制事务处理
+
 >**Warning：** 不同DBMS用来实现事务处理的语法有所不同。在使用事务处理时请参阅相应的DBMS文档。
 
 有的DBMS要求有明确标识事务处理块的开始与结束
+
 ```
 #SQL Server
 BEGIN TRANSACTION
@@ -1522,12 +1619,14 @@ BEGIN
 ```
 
 ### 20.2.1 使用ROLLBACK
+
 ```
 DELETE FROM Orders;
 ROLLBACK;
 ```
 
 ### 20.2.2 使用COMMIT
+
 >一般的SQL语句都是针对数据库表直接执行和编写的。这就是所谓的隐式提交（implicit commit），即提交（写或保存）操作是自动进行的。
 >在事务处理块中，提交不会隐式进行。不过，不同DBMS的做法有所不同。有的DBMS按隐式提交处理事务端，有的则不这样。
 
@@ -1546,6 +1645,7 @@ COMMIT;
 ```
 
 ### 20.2.3 使用保留点
+
 >简单的事务使用ROLLBACK和COMMIT
 >
 >复杂的事务需要部分提交或回退
@@ -1579,12 +1679,14 @@ VALUES(20100, 2, 'BR03', 100, 10.99);
 IF @@ERROR <> 0 ROLLBACK TRANSACTION StartOrder;
 COMMIT TRANSACTION
 ```
+
 >Tips:保留点越多越好
 >>保留点越多，你就越能灵活地进行回退
 
 # 21 使用游标
 
 ## 21.1 游标
+
 >结果集
 >> SQL 查询所检索出的结果
 >
@@ -1609,6 +1711,7 @@ COMMIT TRANSACTION
 >>指示DBMS对检索出的数据（而不是指出表中活动数据）进行复制，使数据在游标打开和访问期间不变化。
 
 ## 21.2 使用游标
+
 >使用游标涉及几个明确的步骤：
 >>在使用游标前，必须声明（定义）它。这个过程实际上没有检索数据，它只是定义要使用的SELECT语句和游标选项。
 >>
@@ -1619,6 +1722,7 @@ COMMIT TRANSACTION
 >>在结束游标使用时，必须关闭游标，可能的话，释放游标（有赖于具体的DBMS）。
 
 # 21.2.1 创建游标
+
 ```
 #DB2、MariaDB、MySQL、SQL Server
 DECLARE CustCursor CURSOR
@@ -1634,6 +1738,7 @@ WHERE cust_email IS NULL
 ```
 
 # 21.2.2 使用游标
+
 ```
 # 大多数DBMS使用
 OPEN CURSOR CustCursor
@@ -1676,7 +1781,9 @@ INTO @cust_id, @cust_name, @cust_address,
 END
 CLOSE CustCursor
 ```
+
 ### 21.2.3 关闭游标
+
 ```
 # DB2\Oracle\PostgreSQL
 CLOSE CustCursor
@@ -1685,9 +1792,11 @@ CLOSE CustCursor
 CLOSE CustCursor
 DEALLOCATE CURSOR CustCursor
 ```
+
 \# 油游标一旦关闭，就不能使用，如果要使用，就必须再次打开它，再次打开不需要声明，只需要OPEN即可。
 
 # 22 高级SQL特性
+
 >几个高级特新
 >> 约束
 >>
@@ -1696,6 +1805,7 @@ DEALLOCATE CURSOR CustCursor
 >>触发器
 
 ## 22.1 约束
+
 >虽然可以在插入新行时进行检查（在另一个表上执行SELECT，以保证所有值合法并存在），但最好不要这样做，原因如下：
 >>如果在客户端层面上实施数据库完整性规则，则每个客户端都要被迫实施这些规则，一定会有一些客户端不实施这些规则。
 >>
@@ -1710,6 +1820,7 @@ DEALLOCATE CURSOR CustCursor
 >每个DBMS提供自己的约束支持，具体参阅具体的DBMS文档
 
 ### 22.1.1 主键
+
 >表中任意列只要满足以下条件，都可以用于主键：
 >>任意两行的主键值都不相同。
 >>
@@ -1740,6 +1851,7 @@ ADD CONSTRAINT PRIMARY KEY (vend_id);
 > SQLite不允许使用 ALTER TABLE 定义键，要求在初始化的CREATE TABLE中定义它们。
 
 ### 22.1.2 外键
+
 >外键是表中的一列，其值必须列在另一表的主键中。外键是保证引用完整性的极其重要部分。
 
 ```
@@ -1758,6 +1870,7 @@ cust_id CHAR(10) NOT NULL REFERENCES Customers(cust_id)
 >有的DBMS支持称为级联删除（cascading delete）的特性，删除一行，所有相关的数据都会被删除。
 
 ### 22.1.3 唯一约束
+
 >唯一约束用来保证一列（或一组列）中的数据是唯一的。它们类似于主键，但存在以下重要区别。
 >>表可包含多个唯一约束，但每个表只允许一个主键。
 >>
@@ -1772,6 +1885,7 @@ cust_id CHAR(10) NOT NULL REFERENCES Customers(cust_id)
 >唯一约束的语法类似于其他约束的语法。唯一约束既可以用UNIQUE关键字在表定义中定义，也可以用单独的CONSTRAINT定义。
 
 ### 22.1.4 检查约束
+
 >检查约束的常见用途有以下几点:
 >>检查最小或最大值。例如，防止0个物品的订单（即使0是合法的数）。
 >>
@@ -1799,6 +1913,7 @@ ADD CONSTRAINT CHECK (gender LIKE '[MF]')
 >>定制数据类型的优点是只需施加约束一次（在数据类型定义中），而每当使用该数据类型时，都会自动应用这些约束。
 
 ## 22.2 索引
+
 >主键数据总是排序的，这是DBMS的工作。因此，按主键检索特定行总是一种快速有效的操作。
 >
 >索引可以定义在一个或者多个列上定义
@@ -1826,6 +1941,7 @@ ON PRODUCTS (prod_name);
 >>最好定期检查索引，并根据需要对索引进行调整。
 
 ## 22.3 触发器
+
 > 触发器是特殊的存储过程，它在特定的数据库活动发生时自动执行。触发器可以与特定表上的INSERT、UPDATE和DELETE操作（或组合）相关联。
 >
 >与存储过程不一样（存储过程只是简单的存储SQL语句），触发器与单个的表相关联。与Orders表上的INSERT操作相关联的触发器只在Orders表中插入行时执行。类似地，Customers表上的INSERT和UPDATE操作的触发器只在表上出现这些操作时执行。
@@ -1870,6 +1986,7 @@ END;
 \# 一般来说约束的处理比触发器更快，因此，应当尽量使用约束
 
 ## 22.4 数据库安全
+
 >大多数DBMS都给管理员提供了管理机制，利用管理机制授予或限制对数据的访问。
 >
 >任何安全系统的基础都是用户授权和身份确认。有的DBMS为此结合使用了操作系统的安全措施，而有的维护自己的用户及密码列表，还有一些结合使用外部目录服务服务器。
