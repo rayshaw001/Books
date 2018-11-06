@@ -1581,12 +1581,307 @@ COMMIT TRANSACTION
 
 # 21 使用游标
 
+## 21.1 游标
+>结果集
+>> SQL 查询所检索出的结果
+>
+>Description:具体DBMS的支持
+>>
+>>Microsoft Access不支持游标，所以本课的内容不适用于Microsoft Access。
+>>
+>>MySQL 5已经支持存储过程。因此，本课的内容不适用MySQL较早的版本。
+>>
+>>SQLite支持的游标称为步骤（step），本课讲述的基本概念适用于SQLite的步骤，但语法可能完全不同。
+>
+>不同的DBMS支持不同的游标选项和特性。常见的一些选项和特性如下。
+>>
+>>能够标记游标为只读，使数据能读取，但不能更新和删除。
+>>
+>>能控制可以执行的定向操作（向前、向后、第一、最后、绝对位置、相对位置等）。
+>>
+>>能标记某些列为可编辑的，某些列为不可编辑的。
+>>
+>>规定范围，使游标对创建它的特定请求（如存储过程）或对所有请求可访问。
+>>
+>>指示DBMS对检索出的数据（而不是指出表中活动数据）进行复制，使数据在游标打开和访问期间不变化。
 
+## 21.2 使用游标
+>使用游标涉及几个明确的步骤：
+>>在使用游标前，必须声明（定义）它。这个过程实际上没有检索数据，它只是定义要使用的SELECT语句和游标选项。
+>>
+>>一旦声明，就必须打开游标以供使用。这个过程用前面定义的SELECT语句把数据实际检索出来。
+>>
+>>对于填有数据的游标，根据需要取出（检索）各行。
+>>
+>>在结束游标使用时，必须关闭游标，可能的话，释放游标（有赖于具体的DBMS）。
 
+# 21.2.1 创建游标
+```
+#DB2、MariaDB、MySQL、SQL Server
+DECLARE CustCursor CURSOR
+FOR
+SELECT * FROM Customers
+WHERE cust_email IS NULL
 
+#Oracle、 PostgreSQL
+DECLARE CURSOR CustCursor
+IS
+SELECT * FROM Customers
+WHERE cust_email IS NULL
+```
 
+# 21.2.2 使用游标
+```
+# 大多数DBMS使用
+OPEN CURSOR CustCursor
 
+# Oracle
+DECLARE TYPE CustCursor IS REF CURSOR
+RETURN Customers%ROWTYPE;
+DECLARE CustRecord Customers%ROWTYPE
+BEGIN
+OPEN CustCursor;
+LOOP
+FETCH CustCursor INTO CustRecord;
+EXIT WHEN CustCursor%NOTFOUND;
+...
+END LOOP;
+CLOSE CustCursor;
+END;
 
+# SQL Server
+DECLARE @cust_id CHAR(10),
+        @cust_name CHAR(50),
+        @cust_address CHAR(50),
+        @cust_city CHAR(50),
+        @cust_state CHAR(5),
+        @cust_zip CHAR(10),
+        @cust_country CHAR(50),
+        @cust_contact CHAR(50),
+        @cust_email CHAR(255)
+OPEN CustCursor
+FETCH NEXT FROM CustCursor
+INTO @cust_id, @cust_name, @cust_address,
+    @cust_city, @cust_state, @cust_zip,
+    @cust_country, @cust_contact, @cust_email
+WHILE @@FETCH_STATUS = 0
+BEGIN
+FETCH NEXT FROM CustCursor
+INTO @cust_id, @cust_name, @cust_address,
+    @cust_city, @cust_state, @cust_zip,
+    @cust_country, @cust_contact, @cust_email
+END
+CLOSE CustCursor
+```
+### 21.2.3 关闭游标
+```
+# DB2\Oracle\PostgreSQL
+CLOSE CustCursor
 
+# SQL Server
+CLOSE CustCursor
+DEALLOCATE CURSOR CustCursor
+```
+\# 油游标一旦关闭，就不能使用，如果要使用，就必须再次打开它，再次打开不需要声明，只需要OPEN即可。
 
+# 22 高级SQL特性
+>几个高级特新
+>> 约束
+>>
+>>索引
+>>
+>>触发器
 
+## 22.1 约束
+>虽然可以在插入新行时进行检查（在另一个表上执行SELECT，以保证所有值合法并存在），但最好不要这样做，原因如下：
+>>如果在客户端层面上实施数据库完整性规则，则每个客户端都要被迫实施这些规则，一定会有一些客户端不实施这些规则。
+>>
+>>在执行UPDATE和DELETE操作时，也必须实施这些规则。
+>>
+>>执行客户端检查是非常耗时的，而DBMS执行这些检查会相对高效。
+
+>大多数约束都是在数据库表上施加约束来实施引用完整性。
+>
+>大多数约束都是在表定义中定义的，使用CREATE TABLE 或ALTER TABLE
+>
+>每个DBMS提供自己的约束支持，具体参阅具体的DBMS文档
+
+### 22.1.1 主键
+>表中任意列只要满足以下条件，都可以用于主键：
+>>任意两行的主键值都不相同。
+>>
+>>每行都具有一个主键值（即列中不允许NULL值）。
+>>
+>>包含主键值的列从不修改或更新。（大多数DBMS不允许这么做，但如果你使用的DBMS允许这样做，好吧，千万别！）
+>>
+>>主键值不能重用。如果从表中删除某一行，其主键值不分配给新行。
+
+```
+# Example
+CREATE TABLE Vendors
+(
+vend_id CHAR(10) NOT NULL PRIMARY KEY,
+vend_name CHAR(50) NOT NULL,
+vend_address CHAR(50) NULL,
+vend_city CHAR(50) NULL,
+vend_state CHAR(5) NULL,
+vend_zip CHAR(10) NULL,
+vend_country CHAR(50) NULL
+);
+
+# 修改表定义
+ALTER TABLE Vendors
+ADD CONSTRAINT PRIMARY KEY (vend_id);
+```
+
+> SQLite不允许使用 ALTER TABLE 定义键，要求在初始化的CREATE TABLE中定义它们。
+
+### 22.1.2 外键
+>外键是表中的一列，其值必须列在另一表的主键中。外键是保证引用完整性的极其重要部分。
+
+```
+CREATE TABLE Orders
+(
+order_num INTEGER NOT NULL PRIMARY KEY,
+order_date DATETIME NOT NULL,
+cust_id CHAR(10) NOT NULL REFERENCES Customers(cust_id)
+);
+```
+
+>外键有助防止意外删除
+>>帮助保证引用完整性外
+>>在定义外键后，DBMS不允许删除在另一个表中具有关联行的行。由于需要一系列的删除，因而利用外键可以防止意外删除数据。
+>
+>有的DBMS支持称为级联删除（cascading delete）的特性，删除一行，所有相关的数据都会被删除。
+
+### 22.1.3 唯一约束
+>唯一约束用来保证一列（或一组列）中的数据是唯一的。它们类似于主键，但存在以下重要区别。
+>>表可包含多个唯一约束，但每个表只允许一个主键。
+>>
+>>唯一约束列可包含NULL值。
+>>
+>>唯一约束列可修改或更新。
+>>
+>>唯一约束列的值可重复使用。
+>>
+>>与主键不一样，唯一约束不能用来定义外键。
+>
+>唯一约束的语法类似于其他约束的语法。唯一约束既可以用UNIQUE关键字在表定义中定义，也可以用单独的CONSTRAINT定义。
+
+### 22.1.4 检查约束
+>检查约束的常见用途有以下几点:
+>>检查最小或最大值。例如，防止0个物品的订单（即使0是合法的数）。
+>>
+>>指定范围。例如，保证发货日期大于等于今天的日期，但不超过今天起一年后的日期。
+>>
+>>只允许特定的值。例如，在性别字段中只允许M或F。
+
+```
+CREATE TABLE OrderItems
+(
+order_num INTEGER NOT NULL,
+order_item INTEGER NOT NULL,
+prod_id CHAR(10) NOT NULL,
+quantity INTEGER NOT NULL CHECK (quantity > 0),
+item_price MONEY NOT NULL
+);
+
+#检查名为gender的列只包含M或F
+ADD CONSTRAINT CHECK (gender LIKE '[MF]')
+```
+
+>用户定义数据类型
+>>有的DBMS允许用户定义自己的数据类型。它们是定义检查约束（或其他约束）的基本简单数据类型。
+>>
+>>定制数据类型的优点是只需施加约束一次（在数据类型定义中），而每当使用该数据类型时，都会自动应用这些约束。
+
+## 22.2 索引
+>主键数据总是排序的，这是DBMS的工作。因此，按主键检索特定行总是一种快速有效的操作。
+>
+>索引可以定义在一个或者多个列上定义
+>
+>在开始创建索引前，应该记住以下内容：
+>>索引改善检索操作的性能，但降低了数据插入、修改和删除的性能。在执行这些操作时，DBMS必须动态地更新索引。
+>>
+>>索引数据可能要占用大量的存储空间。
+>>
+>>并非所有数据都适合做索引。取值不多的数据（如州）不如具有更多可能值的数据（如姓或名），能通过索引得到那么多的好处。
+>>
+>>索引用于数据过滤和数据排序。如果你经常以某种特定的顺序排序数据，则该数据可能适合做索引。
+>>
+>>可以在索引中定义多个列（例如，州加上城市）。这样的索引仅在以州加城市的顺序排序时有用。如果想按城市排序，则这种索引没有用处。
+
+```
+CREATE INDEX prod_name_ind
+ON PRODUCTS (prod_name);
+```
+
+>检查索引
+>>
+>>索引的效率随表数据的增加或改变而变化
+>>
+>>最好定期检查索引，并根据需要对索引进行调整。
+
+## 22.3 触发器
+> 触发器是特殊的存储过程，它在特定的数据库活动发生时自动执行。触发器可以与特定表上的INSERT、UPDATE和DELETE操作（或组合）相关联。
+>
+>与存储过程不一样（存储过程只是简单的存储SQL语句），触发器与单个的表相关联。与Orders表上的INSERT操作相关联的触发器只在Orders表中插入行时执行。类似地，Customers表上的INSERT和UPDATE操作的触发器只在表上出现这些操作时执行。
+>
+>触发器内的代码具有以下数据的访问权：
+>>INSERT操作中的所有新数据；
+>>
+>>UPDATE操作中的所有新数据和旧数据；
+>>
+>>DELETE操作中删除的数据。
+>
+>下面是触发器的一些常见用途。
+>>保证数据一致。例如，在INSERT或UPDATE操作中将所有州名转换为大写。
+>>
+>>基于某个表的变动在其他表上执行活动。例如，每当更新或删除一行时将审计跟踪记录写入某个日志表。
+>>
+>>进行额外的验证并根据需要回退数据。例如，保证某个顾客的可用资金不超限定，如果已经超出，则阻塞插入。
+>>
+>>计算计算列的值或更新时间戳。
+
+```
+# SQL Server
+CREATE TRIGGER customer_state
+ON Customers
+FOR INSERT, UPDATE
+AS
+UPDATE Customers
+SET cust_state = Upper(cust_state)
+WHERE Customers.cust_id = inserted.cust_id;
+
+# Oracle\ PostgreSQL
+CREATE TRIGGER customer_state
+AFTER INSERT OR UPDATE
+FOR EACH ROW
+BEGIN
+UPDATE Customers
+SET cust_state = Upper(cust_state)
+WHERE Customers.cust_id = :OLD.cust_id
+END;
+```
+
+\# 一般来说约束的处理比触发器更快，因此，应当尽量使用约束
+
+## 22.4 数据库安全
+>大多数DBMS都给管理员提供了管理机制，利用管理机制授予或限制对数据的访问。
+>
+>任何安全系统的基础都是用户授权和身份确认。有的DBMS为此结合使用了操作系统的安全措施，而有的维护自己的用户及密码列表，还有一些结合使用外部目录服务服务器。
+
+>一般说来，需要保护的操作有：
+>>对数据库管理功能（创建表、更改或删除已存在的表等）的访问；
+>>
+>>对特定数据库或表的访问；
+>>
+>>访问的类型（只读、对特定列的访问等）；
+>>
+>>仅通过视图或存储过程对表进行访问；
+>>
+>>创建多层次的安全措施，从而允许多种基于登录的访问和控制；
+>>
+>>限制管理用户账号的能力。
+>
+>安全性使用SQL的GRANT和REVOKE语句来管理，不过，大多数DBMS提供了交互式的管理实用程序，这些实用程序在内部使用GRANT和REVOKE语句。
