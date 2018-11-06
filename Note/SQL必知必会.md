@@ -1475,18 +1475,111 @@ VALUES(@order_num, GETDATE(), @cust_id)
 >>怎样才能得到这个自动生成的ID？在SQL Server上可在全局变量@@IDENTITY中得到，它返回到调用程序（这里使用SELECT语句）
 
 # 20 管理事务处理
+>如何利用COMMIT和ROLLBACK语句管理事务处理。
 
+# 20.1 事务处理
+>关于事务处理需要知道的几个术语：
+>>事务（transaction）指一组SQL语句；
+>>
+>>回退（rollback）指撤销指定SQL语句的过程；
+>>
+>>提交（commit）指将未存储的SQL语句结果写入数据库表；
+>>
+>>保留点（savepoint）指事务处理中设置的临时占位符（placeholder），可以对它发布回退（与回退整个事务处理不同）。
+>
+>Tips:可以回退的语句
+>>INSERT\UPDATE\DELETE
+>
+>不能回退的语句
+>>CREATE/DROP/SELECT,事务处理的过程中可以使用这些语句，但是这些操作不会撤销
 
+## 20.2 控制事务处理
+>**Warning：** 不同DBMS用来实现事务处理的语法有所不同。在使用事务处理时请参阅相应的DBMS文档。
 
+有的DBMS要求有明确标识事务处理块的开始与结束
+```
+#SQL Server
+BEGIN TRANSACTION
+...
+COMMIT TRANSACTION
 
+#MariaDB和MySQL
+START TRANSACTION
+...
 
+#Oracle
+SET TRANSACTION
+...
 
+#PostgreSQL
+BEGIN
+...
 
+#其他DBMS采用上述语法的变体。你会发现，多数实现没有明确标识事务处理在何处结束。事务一直存在，直到被中断。通常，COMMITT用于保存更改，ROLLBACK用于撤销
+```
 
+### 20.2.1 使用ROLLBACK
+```
+DELETE FROM Orders;
+ROLLBACK;
+```
 
+### 20.2.2 使用COMMIT
+>一般的SQL语句都是针对数据库表直接执行和编写的。这就是所谓的隐式提交（implicit commit），即提交（写或保存）操作是自动进行的。
+>在事务处理块中，提交不会隐式进行。不过，不同DBMS的做法有所不同。有的DBMS按隐式提交处理事务端，有的则不这样。
 
+```
+#SQL Server
+BEGIN TRANSACTION
+DELETE OrderItems WHERE order_num = 12345
+DELETE Orders WHERE order_num = 12345
+COMMIT TRANSACTION
 
+# ORACLE
+SET TRANSACTION
+DELETE OrderItems WHERE order_num = 12345;
+DELETE Orders WHERE order_num = 12345;
+COMMIT;
+```
 
+### 20.2.3 使用保留点
+>简单的事务使用ROLLBACK和COMMIT
+>
+>复杂的事务需要部分提交或回退
+>
+>在SQL中，这些占位符称为保留点。
+
+```
+# MariaDB\MySQL\Oracle
+SAVEPOINT delete1;
+#ROLLBACK
+ROLLBACK TO delete1;
+
+# SQL Server
+SAVE TRANSACTION delete1;
+# ROLLBACK
+ROLLBACK TRANSACTION delete1;
+
+#完整的SQL Server例子
+BEGIN TRANSACTION
+INSERT INTO Customers(cust_id, cust_name)
+VALUES('1000000010', 'Toys Emporium');
+SAVE TRANSACTION StartOrder;
+INSERT INTO Orders(order_num, order_date, cust_id)
+VALUES(20100,'2001/12/1','1000000010');
+IF @@ERROR <> 0 ROLLBACK TRANSACTION StartOrder;
+INSERT INTO OrderItems(order_num, order_item, prod_id, quantity, item_price)
+VALUES(20100, 1, 'BR01', 100, 5.49);
+IF @@ERROR <> 0 ROLLBACK TRANSACTION StartOrder;
+INSERT INTO OrderItems(order_num, order_item, prod_id, quantity, item_price)
+VALUES(20100, 2, 'BR03', 100, 10.99);
+IF @@ERROR <> 0 ROLLBACK TRANSACTION StartOrder;
+COMMIT TRANSACTION
+```
+>Tips:保留点越多越好
+>>保留点越多，你就越能灵活地进行回退
+
+# 21 使用游标
 
 
 
