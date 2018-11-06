@@ -86,12 +86,14 @@ FROM Products;
 
 ## 2.6 限制结果
 > SQL Server Access
+
 ```
 SELECT TOP 5 prod_name
 FROM Products;
 ```
 
 >DB2
+
 ```
 SELECT　prod_name
 FROM Products
@@ -99,16 +101,17 @@ FETCH FIRST 5 ROWS ONLY;
 ```
 
 >MySQL\MariaDB\PostgreSQL\SQLite
+
 ```
 SELECT prod_name
 FROM Products
 LIMIT 5;
-```
-```
+
 SELECT prod_name
 FROM Products
 LIMIT 5 OFFSET 5;
 ```
+
 \# Warning: 第一个被检索的是第0行，而不是第1行
 
 \# Tips: MySQL和MariaDB支持简化版的LIMIT，LIMIT 4 OFFSET 等价于 LIMIT 3,4
