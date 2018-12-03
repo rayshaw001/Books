@@ -276,3 +276,74 @@ Java SE 1.6 开始引入了“偏向锁”和“轻量级锁”，锁一共有4�
 
 ## 2.4 小结
 Java中的大部分容器和框架都依赖于本章介绍的volatile和原子操作的实现原理
+
+
+# 3 Java内存模型
+
+## 3.1 Java内存模型基础
+
+### 3.1.1 并发编程模型的两个关键问题
+两个关键问题：
+    1. 线程之间如何通信
+    2. 线程之间如何同步
+线程之间的通信机制有两种：内存共享和消息传递
+**Java采用的是共享内存模型**
+Java线程之间的通信总是隐式进行，整个通信过程对程序员完全透明。如果编写多线程程序的Java程序员不理解隐式进行的线程之间通信的工作机制，很可能会遇到各种奇怪的内存可见性问题。
+
+### 3.1.2 Java内存模型的抽象结构
+在Java中，所有实例域、静态域和数组元素都存储在堆内存中，堆内存在线程之间共享。
+局部变量，方法定义参数和异常处理器参数不会再线程之间共享，它们不会有内存可见性的问题，也不会受内存模型的影响
+
+![Java Memory Model](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaMemoryModel.jpg?raw=true)
+
+Java线程之间的通信由Java内存模型（本文简称为JMM）控制，JMM决定一个线程对共享变量的写入何时对另一个线程可见。从抽象的角度来看，JMM定义了线程和主内存之间的抽象关系：线程之间的共享变量存储在主内存（Main Memory）中，每个线程都有一个私有的本地内存（Local Memory），本地内存中存储了该线程以读/写共享变量的副本
+
+线程A与线程B通信：
+    1. 线程A把本地内存A中更新过的共享变量刷新到主内存中去。
+    2. 线程B到主内存中去读取线程A之前已更新过的共享变量。
+    
+![Java Memory Model](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ThreadCommunication.jpg?raw=true)
+
+从整体来看，这两个步骤实质上是线程A在向线程B发送消息，而且这个通信过程必须要经过主内存。JMM通过控制主内存与每个线程的本地内存之间的交互，来为Java程序员提供内存可见性保证。
+
+### 3.1.3 从源代码到指令序列的重排序
+
+在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排序。重排序分3种类型：
+    1. 编译器优化的重排序
+    2. 指令级并行重排序
+    3. 内存系统的重排序
+
+![Reorder Flow](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ReorderFlow.jpg?raw=true)
+
+上述的1属于编译器重排序，2和3属于处理器重排序。这些重排序可能会导致多线程程序出现内存可见性问题。对于编译器，JMM的编译器重排序规则会禁止特定类型的编译器重排序（不是所有的编译器重排序都要禁止）。对于处理器重排序，JMM的处理器重排序规则会要求Java编译器在生成指令序列时，插入特定类型的内存屏障（Memory Barriers，Intel称之为Memory Fence）指令，通过内存屏障指令来禁止特定类型的处理器重排序。
+
+### 3.1.4 并发编程模型的分类
+为了保证内存可见性，Java编译器在生成指令序列的适当位置会插入内存屏障指令来禁止特定类型的处理器重排序。JMM把内存屏障指令分为4类：
+
+![Memory Bariers](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/MemoryBarriers.jpg?raw=true)
+
+### 3.1.5 happens-before简介
+
+在JMM中，如果一个操作执行的结果需要对另一个操作可见，那么这两个操作之间必须要存在happens-before关系。这里提到的两个操作既可以是在一个线程之内，也可以是在不同线程之间。
+
+与程序员密切相关的happens-before规则如下：
+```
+程序顺序规则：一个线程中的每个操作，happens-before于该线程中的任意后续操作。
+
+监视器锁规则：对一个锁的解锁，happens-before于随后对这个锁的加锁。
+
+volatile变量规则：对一个volatile域的写，happens-before于任意后续对这个volatile域的读。
+
+传递性：如果A happens-before B，且B happens-before C，那么A happens-before C。
+```
+
+JMMAndHappensBefore
+
+![JMM And Happens Before](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JMMAndHappensBefore.jpg?raw=true)
+
+## 3.2 重排序
+重排序是指编译器和处理器为了优化程序性能而对指令序列进行重新排序的一种手段。
+
+### 3.2.1 数据依赖性
+
+![Data Dependency](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/DataDependency.jpg?raw=true)
