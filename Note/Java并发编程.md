@@ -38,7 +38,7 @@ public class ConcurrencyTest {
             a += 5;
         }
         int b = 0;
-            for (long i = 0; i < count; i++) {
+        for (long i = 0; i < count; i++) {
             b--;
         }
         long time = System.currentTimeMillis() - start;
@@ -100,7 +100,7 @@ grep java.lang.Thread.State dump17 | awk '{print $2$3$4$5}' | sort | uniq -c
    ODPS、Hadoop、或者自己搭建服务器集群，不同的机器处理不同的数据。可以通过“数据ID%机器数”，计算得到一个机器编号，然后由对应编号的机器处理这笔数据。
 2. 对于软件资源限制，考虑使用资源池将资源复用。比如使用连接池将数据库和Socket连接复用，或者在调用对方webservice接口获取数据时，只建立一个连接
 
-### 在资源限制情况下进行并发编程
+### 1.3.4 在资源限制情况下进行并发编程
 根据不同的资源限制调整程序的并发度，比如下载文件程序依赖于两个资源——带宽和硬盘读写速度
 
 ## 1.4 小结
@@ -636,3 +636,135 @@ ctorInstance(memory);　 // 2：初始化对象
 instance = memory;　　 // 3：设置instance指向刚分配的内存地址
 //2，3 可能会被重排序
 ```
+
+在知晓了问题发生的根源之后，我们可以想出两个办法来实现线程安全的延迟初始化。
+1）不允许2和3重排序。
+2）允许2和3重排序，但不允许其他线程“看到”这个重排序。
+
+### 3.8.3　基于volatile的解决方案
+```
+public class SafeDoubleCheckedLocking {
+    private volatile static Instance instance;
+    public static Instance getInstance() {
+        if (instance == null) {
+            synchronized (SafeDoubleCheckedLocking.class) {
+                if (instance == null)
+                    instance = new Instance(); // instance为volatile，现在没问题了
+            }
+        }
+        return instance;
+    }
+}
+//当声明对象的引用为volatile后，3.8.2节中的3行伪代码中的2和3之间的重排序，在多线程环境中将会被禁止。
+//这个方案本质上是通过禁止图3-39中的2和3之间的重排序，来保证线程安全的延迟初始化。
+```
+
+### 3.8.4 基于类初始化的解决方案
+JVM在类的初始化阶段（即在Class被加载后，且被线程使用之前），会执行类的初始化。在执行类的初始化期间，JVM会去获取一个锁。这个锁可以同步多个线程对同一个类的初始化。
+```
+public class InstanceFactory {
+    private static class InstanceHolder {
+        public static Instance instance = new Instance();
+    }
+    public static Instance getInstance() {
+        return InstanceHolder.instance ;　　// 这里将导致InstanceHolder类被初始化
+    }
+}
+```
+
+初始化一个类，包括执行这个类的静态初始化和初始化在这个类中声明的静态字段。根据Java语言规范，在首次发生下列任意一种情况时，一个类或接口类型T将被立即初始化。
+1）T是一个类，而且一个T类型的实例被创建。
+2）T是一个类，且T中声明的一个静态方法被调用。
+3）T中声明的一个静态字段被赋值。
+4）T中声明的一个静态字段被使用，而且这个字段不是一个常量字段。
+5）T是一个顶级类（Top Level Class，见Java语言规范的§7.6），而且一个断言语句嵌套在T内部被执行。
+
+Java语言规范规定，对于每一个类或接口C，都有一个唯一的初始化锁LC与之对应。从C到LC的映射，由JVM的具体实现去自由实现。JVM在类初始化期间会获取这个初始化锁，并且每个线程至少获取一次锁来确保这个类已经被初始化过了
+
+## 3.9 Java内存模型
+
+### 3.9.1 处理器的内存模型
+顺序一致性内存模型是一个理论参考模型，JMM和处理器内存模型在设计时通常会以顺序一致性内存模型为参照。在设计时，JMM和处理器内存模型会对顺序一致性模型做一些放松，因为如果完全按照顺序一致性模型来实现处理器和JMM，那么很多的处理器和编译器优化都要被禁止，这对执行性能将会有很大的影响。
+
+根据对不同类型的读/写操作组合的执行顺序的放松，可以把常见处理器的内存模型划分为如下几种类型：
+1. ·放松程序中写-读操作的顺序，由此产生了Total Store Ordering内存模型（简称为TSO）。
+2. ·在上面的基础上，继续放松程序中写-写操作的顺序，由此产生了Partial Store Order内存模型（简称为PSO）。
+3. ·在前面两条的基础上，继续放松程序中读-写和读-读操作的顺序，由此产生了RelaxedMemory Order内存模型（简称为RMO）和PowerPC内存模型。
+
+越是追求性能的处理器，内存模型设计得会越弱。因为这些处理器希望内存模型对它们的束缚越少越好，这样它们就可以做尽可能多的优化来提高性能。
+
+### 3.9.2 各种内存模型之间的关系
+常见的4种处理器内存模型比常用的3中语言内存模型要弱，处理器内存模型和语言内存模型都比顺序一致性内存模型要弱。同处理器内存模型一样，越是追求执行性能的语言，内存模型设计得会越弱。
+
+### 3.9.3 JMM的内存可见性保证
+
+按程序类型，Java程序的内存可见性保证可以分为下列3类:
+1. ·单线程程序。单线程程序不会出现内存可见性问题。编译器、runtime和处理器会共同确保单线程程序的执行结果与该程序在顺序一致性模型中的执行结果相同。
+2. ·正确同步的多线程程序。正确同步的多线程程序的执行将具有顺序一致性（程序的执行结果与该程序在顺序一致性内存模型中的执行结果相同）。这是JMM关注的重点，JMM通过限制编译器和处理器的重排序来为程序员提供内存可见性保证。
+3. ·未同步/未正确同步的多线程程序。JMM为它们提供了最小安全性保障：线程执行时读取到的值，要么是之前某个线程写入的值，要么是默认值（0、null、false）。
+
+### 3.9.4　JSR-133对旧内存模型的修补
+JSR-133对JDK 5之前的旧内存模型的修补主要有两个:
+1. ·增强volatile的内存语义。旧内存模型允许volatile变量与普通变量重排序。JSR-13严格
+2. 限制volatile变量与普通变量的重排序，使volatile的写-读和锁的释放-获取具有相同的内存语义。
+3. ·增强final的内存语义。在旧内存模型中，多次读取同一个final变量的值可能会不相同。为此，JSR-133为final增加了两个重排序规则。在保证final引用不会从构造函数内逸出的情况下，final具有了初始化安全性。
+
+## 3.10 小结
+    本章对Java内存模型做了比较全面的解读。希望读者阅读本章之后，对Java内存模型够有一个比较深入的了解；同时，也希望本章可帮助读者解决在Java并发编程中经常遇到的各种内存可见性问题。
+
+
+# 4 Java并发编程基础
+本章将着重介绍Java并发编程的基础知识，从启动一个线程到线程间不同的通信方式，最后通过简单的线程池示例以及应用（简单的Web服务器）来串联本章所介绍的内容。
+
+## 4.1 线程简介
+
+### 4.1.1 什么是线程
+
+一个普通的Java程序包含哪些线程？
+```
+public class MultiThread{
+    public static void main(String[] args) {
+        // 获取Java线程管理MXBean
+        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+        // 不需要获取同步的monitor和synchronizer信息，仅获取线程和线程堆栈信息
+        ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
+        // 遍历线程信息，仅打印线程ID和线程名称信息
+        for (ThreadInfo threadInfo : threadInfos) {
+            System.out.println("[" + threadInfo.getThreadId() + "] " + ThreadInfo.getThreadName());
+        }
+    }
+}
+```
+Result:
+```
+[4] Signal Dispatcher　 // 分发处理发送给JVM信号的线程
+[3] Finalizer　　　　 // 调用对象finalize方法的线程
+[2] Reference Handler // 清除Reference的线程
+[1] main　 　　　　 // main线程，用户程序入口
+```
+
+### 4.1.2 为什么使用多线程
+    1. 更多的处理器核心
+    2. 更快的响应时间
+    3. 更好的编程模型
+
+### 4.1.3 线程优先级
+设置线程优先级时：
+1. 针对频繁阻塞（休眠或者I/O操作）的线程需要设置较高优先级
+2. 偏重计算（需要较多CPU时间或者偏运算）的线程则设置较低的优先级，确保处理器不会被独占。
+3. 程序正确性不能依赖线程的优先级高低。
+
+### 4.1.4 线程的状态
+在给定的一个时刻，线程只能处于其中的一个状态:
+|状态名称|说明|
+|-------|----|
+|NEW|初始状态，线程被构建，但是还没有调用start()方法|
+|RUNNABLE|运行状态，Java线程将操作系统中的就绪和运行两种状态笼统地称作“运行中”|
+|BLOCKED|阻塞状态，表示线程阻塞于锁|
+|WAITING|等待状态，表示线程进入等待状态，进入该状态表示当前线程需要等待其他线程做出一些特定动作（通知或中断）|
+|TIME_WAITING|超时等待状态，该状态不同于WAITING，它是可以在指定的时间自行返回的|
+|TERMINATED|终止状态，表示当前线程已经执行完毕|
+
+![Transformation of Java Thread State]((https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaThreadStateTransform.JPG?raw=true)
+
+
