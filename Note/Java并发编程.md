@@ -921,3 +921,119 @@ synchronized(对象) {
 >数据库连接池的设计也可以复用到其他的资源获取的场景，针对昂贵资源（比如数据库连接）的获取都应该加以超时限制。
 
 ### 4.4.3 线程池技术及其示例
+
+>对于服务端的程序，经常面对的是客户端传入的短小（执行时间短、工作内容较为单一）任务，需要服务端快速处理并返回结果。如果服务端每次接受到一个任务，创建一个线程，然后进行执行，这在原型阶段是个不错的选择，但是面对成千上万的任务递交进服务器时，如果还是采用一个任务一个线程的方式，那么将会创建数以万记的线程，这不是一个好的选择。因为这会使操作系统频繁的进行线程上下文切换，无故增加系统的负载，而线程的创建和消亡都是需要耗费系统资源的，也无疑浪费了系统资源。
+>
+>线程池技术能够很好地解决这个问题，它预先创建了若干数量的线程，并且不能由用户直接对线程的创建进行控制，在这个前提下重复使用固定或较为固定数目的线程来完成任务的执行。这样做的好处是，一方面，消除了频繁创建和消亡线程的系统资源开销，另一方面，面对过量任务的提交能够平缓的劣化。
+
+
+```
+// An Example
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.LinkedList;
+
+public class ThreadPool<Job extends Runnable>{
+    List<Worker> workers = Collections.synchronizedList(new ArrayList<Worker>());
+    List<Job> jobs = new LinkedList<Job>();
+
+    public void execute(Job job){
+        if (job != null) {
+            synchronized (jobs) {
+                jobs.add(0,job);
+                jobs.notify();
+            }
+        }
+    }
+
+    public void initializeWorker(int number){
+        for(int i=0;i<number;i++){
+            Worker worker =new Worker();
+            workers.add(worker);
+            Thread thread = new Thread(worker);
+            thread.start();
+        }
+    }
+
+    class Worker implements Runnable{
+        private volatile boolean running = true; 
+        @Override
+        public void run(){
+            while(running){
+                Job job = null;
+                synchronized(jobs){
+                    while(jobs.isEmpty()){
+                        try{
+                            jobs.wait();
+                        } catch(InterruptedException ie){
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
+                    job = jobs.remove(jobs.size()-1);
+                }
+                if(job != null){
+                    try{
+                        job.run();
+                    } catch(Exception ex){
+    
+                    }
+                }
+            }
+        }
+        public void shutdown(){
+            running = false;
+        }
+    
+    }
+
+
+    public static void main(String args[]){
+        ThreadPool tp = new ThreadPool<>();
+        tp.initializeWorker(5);
+        for(int i=0;i<10000;i++){
+            tp.execute(new Runnable(){
+                @Override
+                public void run(){
+                    try{
+                        Thread.sleep(1000);
+                        System.out.println(Thread.currentThread().getId() + ":" + Thread.currentThread().getName());
+                    } catch(Exception e){
+
+                    }
+                }
+
+            });
+        }
+    }
+}
+interface Job extends Runnable{
+
+}
+
+```
+
+### 4.4.4 一个基于线程池技术的简单Web服务器
+>原理基本同上节
+>
+>线程池中线程数量并不是越多越好，具体的数量需要评估每个任务的处理时间，以及当前计算机的处理器能力和数量。使用的线程过少，无法发挥处理器的性能；使用的线程过多，将会增加系统的无故开销，起到相反的作用。
+
+## 4.5 本章小结
+1. 多线程之间进行通信的基本方式和等待/通知经典范式
+2. 等待超时、数据库连接池以及简单线程池
+
+# 5 Java中的锁
+>本章将介绍Java并发包中与锁相关的API和组件，以及这些API和组件的使用方式和实现细节。内容主要围绕两个方面：使用，通过示例演示这些组件的使用方法以及详细介绍与锁相关的API；实现，通过分析源码来剖析实现细节，因为理解实现的细节方能更加得心应手且正确地使用这些组件。
+
+## 5.1 Lock 接口
+
+
+
+
+
+
+
+
+
+
