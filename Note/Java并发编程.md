@@ -767,4 +767,157 @@ Result:
 
 ![Transformation of Java Thread State]((https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaThreadStateTransform.JPG?raw=true)
 
+### 4.1.5 Daemon 线程
 
+Daemon线程是一种支持型线程，因为它主要被用作程序中后台调度以及支持性工作。这意味着，当一个Java虚拟机中不存在非Daemon线程的时候，Java虚拟机将会退出。可以通过调用Thread.setDaemon(true)将线程设置为Daemon线程。
+
+\# Daemon属性需要在启动线程之前设置，不能在启动线程之后设置。
+\# 在构建Daemon线程时，不能依靠finally块中的内容来确保执行关闭或清理资源的逻辑。
+
+## 4.2 启动和终止线程
+
+### 4.2.1 构造线程
+继承自父进程：
+1. 线程组
+2. 线程优先级
+3. 是否daemon线程
+4. contextClassLoader
+5. 可继承的ThreadLocal
+构造时分配：
+6. 线程ID 
+
+### 4.2.2 启动线程
+线程对象在初始化完成之后，调用start()方法就可以启动这个线程。线程start()方法的含义是：当前线程（即parent线程）同步告知Java虚拟机，只要线程规划器空闲，应立即启动调用start()方法的线程。
+\# 启动一个线程前，最好为这个线程设置线程名称，因为这样在使用jstack分析程序或者进行问题排查时，就会给开发人员提供一些提示，自定义的线程最好能够起个名字。
+
+### 4.2.3 理解中断
+1. 中断可以理解为线程的一个标识位属性，它表示一个运行中的线程是否被其他线程进行了中断操作。
+2. 线程通过检查自身是否被中断来进行响应，线程通过方法isInterrupted()来进行判断是否被中断，也可以调用静态方法Thread.interrupted()对当前线程的中断标识位进行复位。
+3. 从Java的API中可以看到，许多声明抛出InterruptedException的方法（例如Thread.sleep(longmillis)方法）这些方法在抛出InterruptedException之前，Java虚拟机会先将该线程的中断标识位清除，然后抛出InterruptedException，此时调用isInterrupted()方法将会返回false。
+
+### 4.2.4 过期的suspend()、resume()和stop()
+这些API是过期的，也就是不建议使用的:
+1. suspend() 在调用后，线程不会释放已经占有的资源（比如锁），而是占有着资源进入睡眠状态，这样容易引发死锁问题。
+2. stop()方法在终结一个线程时不会保证线程的资源正常释放，通常是没有给予线程完成资源释放工作的机会，因此会导致程序可能工作在不确定状态下。
+
+\# 正因为suspend()、resume()和stop()方法带来的副作用，这些方法才被标注为不建议使用的过期方法，而暂停和恢复操作可以用后面提到的等待/通知机制来替代。
+
+### 4.2.5 安全地终止线程
+1. 在4.2.3节中提到的中断状态是线程的一个标识位，而中断操作是一种简便的线程间交互方式，而这种交互方式最适合用来取消或停止任务。除了中断以外，还可以利用一个boolean变量来控制是否需要停止任务并终止该线程。
+2. 这种通过标识位或者中断操作的方式能够使线程在终止时有机会去清理资源，而不是武断地将线程停止，因此这种终止线程的做法显得更加安全和优雅。
+
+## 4.3 线程间通信
+
+### 4.3.1 volatile和synchronized关键字
+
+Java支持多个线程同时访问一个对象或者对象的成员变量，由于每个线程可以拥有这个变量的拷贝（虽然对象以及成员变量分配的内存是在共享内存中的，但是每个执行的线程还是可以拥有一份拷贝，这样做的目的是加速程序的执行，这是现代多核处理器的一个显著特性），所以程序在执行过程中，一个线程看到的变量并不一定是最新的。
+
+>关键字volatile可以用来修饰字段（成员变量），就是告知程序任何对该变量的访问均需要从共享内存中获取，而对它的改变必须同步刷新回共享内存，它能保证所有线程对变量访问的可见性。
+
+\# 过多地使用volatile是不必要的，因为它会降低程序执行的效率。
+
+>关键字synchronized可以修饰方法或者以同步块的形式来进行使用，它主要确保多个线程在同一个时刻，只能有一个线程处于方法或者同步块中，它保证了线程对变量访问的可见性和排他性。
+
+
+```
+Eg:
+public class Synchronized {
+    public static void main(String[] args) {
+        // 对Synchronized Class对象进行加锁
+        synchronized (Synchronized.class) {
+        }
+        // 静态同步方法，对Synchronized Class对象进行加锁
+        m();
+    }
+    public static synchronized void m() {
+    }
+}
+
+//javap –v Synchronized.class
+public static void main(java.lang.String[]);
+    // 方法修饰符，表示：public staticflags: ACC_PUBLIC, ACC_STATIC
+    Code:
+        stack=2, locals=1, args_size=1
+        0: ldc #1　　// class com/murdock/books/multithread/book/Synchronized
+        2: dup
+        3: monitorenter　　// monitorenter：监视器进入，获取锁
+        4: monitorexit　　 // monitorexit：监视器退出，释放锁
+        5: invokestatic　　#16 // Method m:()V
+        8: return
+    public static synchronized void m();
+    // 方法修饰符，表示： public static synchronized
+    flags: ACC_PUBLIC, ACC_STATIC, ACC_SYNCHRONIZED
+        Code:
+                stack=0, locals=0, args_size=0
+                0: return
+
+```
+
+![Relation of Object , Monitor, SyncQueue and Thread](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ObjectMonitorSyncQueueThread.jpg?raw=true)
+
+任意线程对Object（Object由synchronized保护）的访问，首先要获得Object的监视器。如果获取失败，线程进入同步队列，线程状态变为BLOCKED。当访问Object的前驱（获得了锁的线程）释放了锁，则该释放操作唤醒阻塞在同步队列中的线程，使其重新尝试对监视器的获取。
+
+### 4.3.2 等待、通知机制
+
+1）使用wait()、notify()和notifyAll()时需要先对调用对象加锁。
+2）调用wait()方法后，线程状态由RUNNING变为WAITING，并将当前线程放置到对象的等待队列。
+3）notify()或notifyAll()方法调用后，等待线程依旧不会从wait()返回，需要调用notify()或notifAll()的线程释放锁之后，等待线程才有机会从wait()返回。
+4）notify()方法将等待队列中的一个等待线程从等待队列中移到同步队列中，而notifyAll()方法则是将等待队列中所有的线程全部移到同步队列，被移动的线程状态由WAITING变为BLOCKED。
+5）从wait()方法返回的前提是获得了调用对象的锁。
+
+### 4.3.3 等待/通知的经典范式
+
+等待方遵循如下原则：
+1）获取对象的锁。
+2）如果条件不满足，那么调用对象的wait()方法，被通知后仍要检查条件。
+3）条件满足则执行对应的逻辑。
+```
+synchronized(对象) {
+    while(条件不满足) {
+        对象.wait();
+    }
+    对应的处理逻辑
+}
+```
+
+通知方遵循如下原则:
+1）获得对象的锁。
+2）改变条件。
+3）通知所有等待在对象上的线程。
+
+```
+synchronized(对象) {
+    改变条件
+    对象.notifyAll();
+}
+```
+
+### 4.3.4 管道输入/输出流
+>管道输入/输出流和普通的文件输入/输出流或者网络输入/输出流不同之处在于，它主要用于线程之间的数据传输，而传输的媒介为内存。
+>
+>管道输入/输出流主要包括了如下4种具体实现：
+>PipedOutputStream、PipedInputStream、
+>PipedReader和PipedWriter，前两种面向字节，而后两种面向字符。
+
+
+### 4.3.5 Thread.join()的使用
+>如果一个线程A执行了thread.join()语句，其含义是：当前线程A等待thread线程终止之后才从thread.join()返回。线程Thread除了提供join()方法之外，还提供了join(long millis)和join(longmillis,int nanos)两个具备超时特性的方法。这两个超时方法表示，如果线程thread在给定的超时时间里没有终止，那么将会从该超时方法中返回。
+>
+>当线程终止时，会调用线程自身的notifyAll()方法，会通知所有等待在该线程对象上的线程。可以看到join()方法的逻辑结构与4.3.3节中描述的等待/通知经典范式一致，即加锁、循环和处理逻辑3个步骤。
+
+### 4.3.6 ThreadLocal
+1. ThreadLocal，即线程变量，是一个以ThreadLocal对象为键、任意对象为值的存储结构。这个结构被附带在线程上，也就是说一个线程可以根据一个ThreadLocal对象查询到绑定在这个线程上的一个值。
+2. 可以通过set(T)方法来设置一个值，在当前线程下再通过get()方法获取到原先设置的值。
+
+
+## 4.4 线程应用实例
+### 4.4.1 等待超时模式
+
+>等待超时模式就是在等待/通知范式基础上增加了超时控制，这使得该模式相比原有范式更具有灵活性，因为即使方法执行时间过长，也不会“永久”阻塞调用者，而是会按照调用者的要求“按时”返回。
+
+### 4.4.2 一个简单的数据库连接池示例
+>我们使用等待超时模式来构造一个简单的数据库连接池，在示例中模拟从连接池中获取、使用和释放连接的过程，而客户端获取连接的过程被设定为等待超时的模式，也就是在1000毫秒内如果无法获取到可用连接，将会返回给客户端一个null。
+>
+>数据库连接池的设计也可以复用到其他的资源获取的场景，针对昂贵资源（比如数据库连接）的获取都应该加以超时限制。
+
+### 4.4.3 线程池技术及其示例
