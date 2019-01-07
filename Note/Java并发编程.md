@@ -1027,13 +1027,63 @@ interface Job extends Runnable{
 >本章将介绍Java并发包中与锁相关的API和组件，以及这些API和组件的使用方式和实现细节。内容主要围绕两个方面：使用，通过示例演示这些组件的使用方法以及详细介绍与锁相关的API；实现，通过分析源码来剖析实现细节，因为理解实现的细节方能更加得心应手且正确地使用这些组件。
 
 ## 5.1 Lock 接口
+>Java SE 5之后，并发包中新增了Lock接口（以及相关实现类）用来实现锁功能，它提供了与synchronized关键字类似的同步功能，只是在使用时需要显式地获取和释放锁。虽然它缺少了（通过synchronized块或者方法所提供的）隐式获取释放锁的便捷性，但是却拥有了锁获取与释放的可操作性、可中断的获取锁以及超时获取锁等多种synchronized关键字所不具备的同步特性。
+
+```
+//LockUseCase.java
+Lock lock  = new ReentrantLock();
+try{
+} finally{
+    lock.unlock();
+}
+```
+\# 在finally块中释放锁，目的是保证在获取到锁之后，最终能够被释放
+\# 不要将获取锁的过程写在try块中，因为如果在获取锁（自定义锁的实现）时发生了异常，异常抛出的同时，也会导致锁无故释放。
+
+Lock接口提供的synchronized关键字所不具备的主要特性:
+|特性|描述|
+|---|----|
+|尝试非阻塞地获取锁|当前线程尝试获取锁，如果这一时刻锁没有被其他线程获取到，则成功获取并持有锁|
+|能被中断地获取锁|与synchronied不同，获取到锁的线程能够响应中断，当获取到锁的线程被中断时，中断异常会被抛出，同时释放锁|
+|超时获取锁|在指定的截止时间之前获取锁，若果截止时间到了仍旧无法获取锁，则返回|
+
+Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API如下：
+|方法名称|描述|
+|-------|----|
+|void lock()||
+|void lockInterruptibly() throws InterruptedException|可中断地获取锁，和lock()方法的不同之处在于该方法会响应中断，即在锁的获取中可以中断当前线程|
+|boolean tryLock()|尝试非阻塞的获取锁，调用该方法后立刻返回，如果能够获取则返回true，否则返回false|
+|boolean tryLock(long time,TimeUnit unit) throws InterruptedException|超时的获取锁，当前线程在一下3中情况下会返回：<br>1. 当前线程在超时时间内获得了锁<br>2. 当前线程在超时时间内被中断<br>3. 超时时间结束，返回false|
+|void unlock()|释放锁|
+|Condition newCondition()|获取等待通知组件，该组件和当前的锁绑定，当前线程只有获得了锁，才能调用该组件的wait()方法，而调用后，当前线程将释放|
+
+>这里先简单介绍一下Lock接口的API，随后的章节会详细介绍同步器AbstractQueuedSynchronizer以及常用Lock接口的实现ReentrantLock。
+
+## 5.2 队列同步器
+
+>队列同步器AbstractQueuedSynchronizer（以下简称同步器），是用来构建锁或者其他同步组件的基础框架，它使用了一个int成员变量表示同步状态，通过内置的FIFO队列来完成资源获取线程的排队工作，并发包的作者（Doug Lea）期望它能够成为实现大部分同步需求的基础。
+>
+>同步器的主要使用方式是继承，子类通过继承同步器并实现它的抽象方法来管理同步状态，在抽象方法的实现过程中免不了要对同步状态进行更改，这时就需要使用同步器提供的3个方法（getState()、setState(int newState)和compareAndSetState(int expect,int update)）来进行操作，因为它们能够保证状态的改变是安全的。
+>
+>子类推荐被定义为自定义同步组件的静态内部类，同步器自身没有实现任何同步接口，它仅仅是定义了若干同步状态获取和释放的方法来供自定义同步组件使用，同步器既可以支持独占式地获取同步状态，也可以支持共享式地获取同步状态，这样就可以方便实现不同类型的同步组件（ReentrantLock、ReentrantReadWriteLock和CountDownLatch等）。
+>
+>同步器是实现锁（也可以是任意同步组件）的关键，在锁的实现中聚合同步器，利用同步器实现锁的语义。可以这样理解二者之间的关系：锁是面向使用者的，它定义了使用者与锁交互的接口（比如可以允许两个线程并行访问），隐藏了实现细节；同步器面向的是锁的实现者，它简化了锁的实现方式，屏蔽了同步状态管理、线程的排队、等待与唤醒等底层操作。锁和同步器很好地隔离了使用者和实现者所需关注的领域。
 
 
+### 5.2.1 队列同步器的接口与示例
+重写同步器指定的方法时，需要使用同步器提供的如下3个方法来访问或修改同步状态：
+1. ·getState()：获取当前同步状态。
+2. ·setState(int newState)：设置当前同步状态。
+3. ·compareAndSetState(int expect,int update)：使用CAS设置当前状态，该方法能够保证状态设置的原子性。
 
+同步器可重写的方法与描述：
+|方法名称|描述|
+|-------|----|
+|protected boolean tryAcquire(int arg)|独占式获取同步状态，实现该方法需要查询当前状态并判断同步状态是否符合预期，然后再进行CAS设置同步状态|
+|protected boolean tryRelease(int arg)|独占式释放同步状态，等待获取同步状态的线程将有机会获取同步状态|
+|protected int tryAcquireShared(int arg)|共享式获取同步状态，返回大于等于0的值，表示获取成功，反之，获取失败|
+|protected boolean tryReleaseShared(int arg)|共享式释放同步状态|
+|protected boolean isHeldExclusively()|当前同步器是否在独占模式下被线程占用，一般该方法表示是否被单签线程所独占|
 
-
-
-
-
-
+![Synchronizer Template Method](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/SynchronizerTemplateMethod.JPG?raw=true)
 
