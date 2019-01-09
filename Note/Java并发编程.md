@@ -297,7 +297,7 @@ Java线程之间的通信总是隐式进行，整个通信过程对程序员完�
 在Java中，所有实例域、静态域和数组元素都存储在堆内存中，堆内存在线程之间共享。
 局部变量，方法定义参数和异常处理器参数不会再线程之间共享，它们不会有内存可见性的问题，也不会受内存模型的影响
 
-![Java Memory Model](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaMemoryModel.jpg?raw=true)
+![Java Memory Model](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaMemoryModel.JPG?raw=true)
 
 Java线程之间的通信由Java内存模型（本文简称为JMM）控制，JMM决定一个线程对共享变量的写入何时对另一个线程可见。从抽象的角度来看，JMM定义了线程和主内存之间的抽象关系：线程之间的共享变量存储在主内存（Main Memory）中，每个线程都有一个私有的本地内存（Local Memory），本地内存中存储了该线程以读/写共享变量的副本
 
@@ -305,7 +305,7 @@ Java线程之间的通信由Java内存模型（本文简称为JMM）控制，JMM
     1. 线程A把本地内存A中更新过的共享变量刷新到主内存中去。
     2. 线程B到主内存中去读取线程A之前已更新过的共享变量。
     
-![Java Memory Model](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ThreadCommunication.jpg?raw=true)
+![Java Memory Model](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ThreadCommunication.JPG?raw=true)
 
 从整体来看，这两个步骤实质上是线程A在向线程B发送消息，而且这个通信过程必须要经过主内存。JMM通过控制主内存与每个线程的本地内存之间的交互，来为Java程序员提供内存可见性保证。
 
@@ -316,14 +316,14 @@ Java线程之间的通信由Java内存模型（本文简称为JMM）控制，JMM
     2. 指令级并行重排序
     3. 内存系统的重排序
 
-![Reorder Flow](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ReorderFlow.jpg?raw=true)
+![Reorder Flow](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ReorderFlow.JPG?raw=true)
 
 上述的1属于编译器重排序，2和3属于处理器重排序。这些重排序可能会导致多线程程序出现内存可见性问题。对于编译器，JMM的编译器重排序规则会禁止特定类型的编译器重排序（不是所有的编译器重排序都要禁止）。对于处理器重排序，JMM的处理器重排序规则会要求Java编译器在生成指令序列时，插入特定类型的内存屏障（Memory Barriers，Intel称之为Memory Fence）指令，通过内存屏障指令来禁止特定类型的处理器重排序。
 
 ### 3.1.4 并发编程模型的分类
 为了保证内存可见性，Java编译器在生成指令序列的适当位置会插入内存屏障指令来禁止特定类型的处理器重排序。JMM把内存屏障指令分为4类：
 
-![Memory Bariers](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/MemoryBarriers.jpg?raw=true)
+![Memory Bariers](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/MemoryBarriers.JPG?raw=true)
 
 ### 3.1.5 happens-before简介
 
@@ -342,14 +342,14 @@ volatile变量规则：对一个volatile域的写，happens-before于任意后�
 
 JMMAndHappensBefore
 
-![JMM And Happens Before](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JMMAndHappensBefore.jpg?raw=true)
+![JMM And Happens Before](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JMMAndHappensBefore.JPG?raw=true)
 
 ## 3.2 重排序
 重排序是指编译器和处理器为了优化程序性能而对指令序列进行重新排序的一种手段。
 
 ### 3.2.1 数据依赖性
 
-![Data Dependency](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/DataDependency.jpg?raw=true)
+![Data Dependency](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/DataDependency.JPG?raw=true)
 
 上面3种情况，只要重排序两个操作的执行顺序，程序的执行结果就会被改变。
 前面提到过，编译器和处理器可能会对操作做重排序。编译器和处理器在重排序时，会遵守数据依赖性，编译器和处理器不会改变存在数据依赖关系的两个操作的执行顺序。
@@ -508,7 +508,7 @@ Java的CAS同时具有volatile读和volatile写的内存语义，因此Java线�
 然后，使用CAS的原子条件更新来实现线程之间的同步。
 同时，配合以volatile的读/写和CAS所具有的volatile读和写的内存语义来实现线程之间的通信。
 
-![Concurrent Package Implement](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ConcurrentPackageImpl.jpg?raw=true)
+![Concurrent Package Implement](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ConcurrentPackageImpl.JPG?raw=true)
 
 ## 3.6 final 域的内存语义
 与前面介绍的锁和volatile相比，对final域的读和写更像是普通的变量访问。
@@ -756,6 +756,7 @@ Result:
 
 ### 4.1.4 线程的状态
 在给定的一个时刻，线程只能处于其中的一个状态:
+
 |状态名称|说明|
 |-------|----|
 |NEW|初始状态，线程被构建，但是还没有调用start()方法|
@@ -765,7 +766,7 @@ Result:
 |TIME_WAITING|超时等待状态，该状态不同于WAITING，它是可以在指定的时间自行返回的|
 |TERMINATED|终止状态，表示当前线程已经执行完毕|
 
-![Transformation of Java Thread State]((https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaThreadStateTransform.JPG?raw=true)
+![Transformation of Java Thread State](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JavaThreadStateTransform.JPG?raw=true)
 
 ### 4.1.5 Daemon 线程
 
@@ -1041,6 +1042,7 @@ try{
 \# 不要将获取锁的过程写在try块中，因为如果在获取锁（自定义锁的实现）时发生了异常，异常抛出的同时，也会导致锁无故释放。
 
 Lock接口提供的synchronized关键字所不具备的主要特性:
+
 |特性|描述|
 |---|----|
 |尝试非阻塞地获取锁|当前线程尝试获取锁，如果这一时刻锁没有被其他线程获取到，则成功获取并持有锁|
@@ -1048,9 +1050,10 @@ Lock接口提供的synchronized关键字所不具备的主要特性:
 |超时获取锁|在指定的截止时间之前获取锁，若果截止时间到了仍旧无法获取锁，则返回|
 
 Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API如下：
+
 |方法名称|描述|
 |-------|----|
-|void lock()||
+|void lock()|获取锁，，调用该方法当前线程将会获取锁，当获得锁后，从方法返回|
 |void lockInterruptibly() throws InterruptedException|可中断地获取锁，和lock()方法的不同之处在于该方法会响应中断，即在锁的获取中可以中断当前线程|
 |boolean tryLock()|尝试非阻塞的获取锁，调用该方法后立刻返回，如果能够获取则返回true，否则返回false|
 |boolean tryLock(long time,TimeUnit unit) throws InterruptedException|超时的获取锁，当前线程在一下3中情况下会返回：<br>1. 当前线程在超时时间内获得了锁<br>2. 当前线程在超时时间内被中断<br>3. 超时时间结束，返回false|
@@ -1077,6 +1080,7 @@ Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API
 3. ·compareAndSetState(int expect,int update)：使用CAS设置当前状态，该方法能够保证状态设置的原子性。
 
 同步器可重写的方法与描述：
+
 |方法名称|描述|
 |-------|----|
 |protected boolean tryAcquire(int arg)|独占式获取同步状态，实现该方法需要查询当前状态并判断同步状态是否符合预期，然后再进行CAS设置同步状态|
