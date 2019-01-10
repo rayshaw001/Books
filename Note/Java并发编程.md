@@ -756,7 +756,6 @@ Result:
 
 ### 4.1.4 线程的状态
 在给定的一个时刻，线程只能处于其中的一个状态:
-
 |状态名称|说明|
 |-------|----|
 |NEW|初始状态，线程被构建，但是还没有调用start()方法|
@@ -1042,7 +1041,6 @@ try{
 \# 不要将获取锁的过程写在try块中，因为如果在获取锁（自定义锁的实现）时发生了异常，异常抛出的同时，也会导致锁无故释放。
 
 Lock接口提供的synchronized关键字所不具备的主要特性:
-
 |特性|描述|
 |---|----|
 |尝试非阻塞地获取锁|当前线程尝试获取锁，如果这一时刻锁没有被其他线程获取到，则成功获取并持有锁|
@@ -1050,10 +1048,9 @@ Lock接口提供的synchronized关键字所不具备的主要特性:
 |超时获取锁|在指定的截止时间之前获取锁，若果截止时间到了仍旧无法获取锁，则返回|
 
 Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API如下：
-
 |方法名称|描述|
 |-------|----|
-|void lock()|获取锁，，调用该方法当前线程将会获取锁，当获得锁后，从方法返回|
+|void lock()||
 |void lockInterruptibly() throws InterruptedException|可中断地获取锁，和lock()方法的不同之处在于该方法会响应中断，即在锁的获取中可以中断当前线程|
 |boolean tryLock()|尝试非阻塞的获取锁，调用该方法后立刻返回，如果能够获取则返回true，否则返回false|
 |boolean tryLock(long time,TimeUnit unit) throws InterruptedException|超时的获取锁，当前线程在一下3中情况下会返回：<br>1. 当前线程在超时时间内获得了锁<br>2. 当前线程在超时时间内被中断<br>3. 超时时间结束，返回false|
@@ -1080,7 +1077,6 @@ Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API
 3. ·compareAndSetState(int expect,int update)：使用CAS设置当前状态，该方法能够保证状态设置的原子性。
 
 同步器可重写的方法与描述：
-
 |方法名称|描述|
 |-------|----|
 |protected boolean tryAcquire(int arg)|独占式获取同步状态，实现该方法需要查询当前状态并判断同步状态是否符合预期，然后再进行CAS设置同步状态|
@@ -1090,4 +1086,377 @@ Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API
 |protected boolean isHeldExclusively()|当前同步器是否在独占模式下被线程占用，一般该方法表示是否被单签线程所独占|
 
 ![Synchronizer Template Method](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/SynchronizerTemplateMethod.JPG?raw=true)
+
+同步器提供的模板方法基本上分为3类：
+1. 独占式获取与释放同步状态
+2. 共享式获取与释放同步状态
+3. 查询同步队列中的等待线程情况。
+\# 自定义同步组件将使用同步器提供的模板方法来实现自己的同步语义。
+
+\# 只有掌握了同步器的工作原理才能更加深入地理解并发包中其他的并发组件，所以下面通过一个独占锁的示例来深入了解一下同步器的工作原理。
+
+
+```
+/**
+  * Mutex.java
+  *
+  */
+class Mutex implements Lock {
+    // 静态内部类，自定义同步器
+    private static class Sync extends AbstractQueuedSynchronizer {
+        // 是否处于占用状态
+        protected boolean isHeldExclusively() {
+            return getState() == 1;
+        }
+        // 当状态为0的时候获取锁
+        public boolean tryAcquire(int acquires) {
+            if (compareAndSetState(0, 1)) {
+                setExclusiveOwnerThread(Thread.currentThread());
+                return true;
+            }
+            return false;
+        }
+        // 释放锁，将状态设置为0
+        protected boolean tryRelease(int releases) {
+            if (getState() == 0) throw new IllegalMonitorStateException();
+            setExclusiveOwnerThread(null);
+            setState(0);
+            return true;
+        }
+        // 返回一个Condition，每个condition都包含了一个condition队列
+        Condition newCondition() { 
+            return new ConditionObject(); 
+        }
+    }
+    // 仅需要将操作代理到Sync上即可
+    private final Sync sync = new Sync();
+    public void lock() { sync.acquire(1); }
+    public boolean tryLock() { return sync.tryAcquire(1); }
+    public void unlock() { sync.release(1); }
+    public Condition newCondition() { return sync.newCondition(); }
+    public boolean isLocked() { return sync.isHeldExclusively(); }
+    public boolean hasQueuedThreads() { return sync.hasQueuedThreads(); }
+    public void lockInterruptibly() throws InterruptedException {
+        sync.acquireInterruptibly(1);
+    }
+    public boolean tryLock(long timeout, TimeUnit unit) throws InterruptedException {
+        return sync.tryAcquireNanos(1, unit.toNanos(timeout));
+    }
+}
+```
+
+### 5.2.2 队列同步器的实现分析
+>接下来将从实现角度分析同步器是如何完成线程同步的，主要包括同步器的核心数据结构与模板方法：
+1. 同步队列
+2. 独占式同步状态获取与释放
+3. 共享式同步状态获取与释放
+4. 超时获取同步状态
+
+#### 5.2.2.1 同步队列
+>同步器依赖内部的同步队列（一个FIFO双向队列）来完成同步状态的管理，当前线程获取同步状态失败时，同步器会将当前线程以及等待状态等信息构造成为一个节点（Node）并将其加入同步队列，同时会阻塞当前线程，当同步状态释放时，会把首节点中的线程唤醒，使其再次尝试获取同步状态。
+
+![Node Propertity Type And Name & Description](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/NodePropertityTypeAndName&Description.JPG?raw=true)
+
+![Basic Struct Of Sync Queue](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/BasicStructOfSyncQueue.JPG?raw=true)
+
+#### 5.2.2.2 独占式同步状态获取与释放
+
+![Get Sync Status Process](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/GetSyncStatusProcess.JPG?raw=true)
+
+\# 在获取同步状态时，同步器维护一个同步队列，获取状态失败的线程都会被加入到队列中并在队列中进行自旋；移出队列（或停止自旋）的条件是前驱节点为头节点且成功获取了同步状态。在释放同步状态时，同步器调用tryRelease(int arg)方法释放同步状态，然后唤醒头节点的后继节点。
+
+#### 5.2.2.3 共享式同步状态获取与释放
+![Camparing Between Shared And Occupied](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/CamparingBetweenSharedAndOccupied.JPG?raw=true)
+
+\# 它和独占式主要区别在于tryReleaseShared(int arg)方法必须确保同步状态（或者资源数）线程安全释放，一般是通过循环和CAS来保证的，因为释放同步状态的操作会同时来自多个线程。
+
+#### 5.2.2.4 独占式超时获取同步状态
+>通过调用同步器的doAcquireNanos(int arg,long nanosTimeout)方法可以超时获取同步状态，即在指定的时间段内获取同步状态，如果获取到同步状态则返回true，否则，返回false。该方法提供了传统Java同步操作（比如synchronized关键字）所不具备的特性。
+
+\#如果nanosTimeout小于等于spinForTimeoutThreshold（1000纳秒）时，将不会使该线程进行超时等待，而是进入快速的自旋过程。原因在于，非常短的超时等待无法做到十分精确，如果这时再进行超时等待，相反会让nanosTimeout的超时从整体上表现得反而不精确。因此，在超时非常短的场景下，同步器会进入无条件的快速自旋。
+
+![Timeout Acquire Sync Process](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/TimeoutAcquireSyncProcess.JPG?raw=true)
+
+#### 5.2.2.5 自定义同步组件^^^^^^TwinsLock
+本小节设计一个自定义同步组建来加深对同步器的理解
+
+1. 首先，确定访问模式。TwinsLock能够在同一时刻支持多个线程的访问，这显然是共享式访问：
+    需要使用同步器提供的acquireShared(int args)方法等和Shared相关的方法，这就要求TwinsLock必须重写tryAcquireShared(int args)方法和tryReleaseShared(int args)方法，这样才能保证同步器的共享式同步状态的获取与释放方法得以执行。
+2. 其次，定义资源数。TwinsLock在同一时刻允许至多两个线程的同时访问，表明同步资源
+数为2：
+    这样可以设置初始状态status为2，当一个线程进行获取，status减1，该线程释放，则status加1，状态的合法范围为0、1和2，其中0表示当前已经有两个线程获取了同步资源，此时再有其他线程对同步状态进行获取，该线程只能被阻塞。在同步状态变更时，需要使用compareAndSet(int expect,int update)方法做原子性保障。
+3. 最后，组合自定义同步器。前面的章节提到，自定义同步组件通过组合自定义同步器来完
+
+```
+//TwinsLock.java
+public class TwinsLock implements Lock {
+    private final Sync sync = new Sync(2);
+    private static final class Sync extends AbstractQueuedSynchronizer {
+        Sync(int count) {
+            if (count <= 0) {
+                throw new IllegalArgumentException("count must largethan zero.");
+            }
+            setState(count);
+        }
+        public int tryAcquireShared(int reduceCount) {
+            for (;;) {
+                int current = getState();
+                int newCount = current - reduceCount;
+                if (newCount < 0 || compareAndSetState(current,newCount)) {
+                    return newCount;
+                }
+            }
+        }
+        public boolean tryReleaseShared(int returnCount) {
+            for (;;) {
+                int current = getState();
+                int newCount = current + returnCount;
+                if (compareAndSetState(current, newCount)) {
+                    return true;
+                }
+            }
+        }
+    }
+    public void lock() {
+        sync.acquireShared(1);
+    }
+    public void unlock() {
+        sync.releaseShared(1);
+    }
+    // 其他接口方法略
+}
+
+//TwinsLockTest.java
+public class TwinsLockTest {
+    @Test
+    public void test() {
+        final Lock lock = new TwinsLock();
+        class Worker extends Thread {
+            public void run() {
+                while (true) {
+                    lock.lock();
+                    try {
+                        SleepUtils.second(1);
+                        System.out.println(Thread.currentThread().getName());
+                        SleepUtils.second(1);
+                    } finally {
+                        lock.unlock();
+                    }
+                }
+            }
+        }
+        // 启动10个线程
+        for (int i = 0; i < 10; i++) {
+            Worker w = new Worker();
+            w.setDaemon(true);
+            w.start();
+        }
+        // 每隔1秒换行
+        for (int i = 0; i < 10; i++) {
+            SleepUtils.second(1);
+            System.out.println();
+        }
+    }
+}
+```
+
+## 5.3 重入锁
+>重入锁ReentrantLock，顾名思义，就是支持重进入的锁，它表示该锁能够支持一个线程对资源的重复加锁。除此之外，该锁的还支持获取锁时的公平和非公平性选择。
+>
+>如果在绝对时间上，先对锁进行获取的请求一定先被满足，那么这个锁是公平的，反之，是不公平的。
+>
+>ReentrantLock提供了一个构造函数，能够控制锁是否是公平的。
+>
+>下面将着重分析ReentrantLock是如何实现重进入和公平性获取锁的特性，并通过测试来验证公平性获取锁对性能的影响。
+
+### 5.3.1 实现重进入
+该特性的实现需要解决以下两个问题：
+1. 线程再次获取锁。锁需要去识别获取锁的线程是否为当前占据锁的线程，如果是，则再次成功获取。
+2. 锁的最终释放。线程重复n次获取了锁，随后在第n次释放该锁后，其他线程能够获取到该锁。
+```
+//
+final boolean nonfairTryAcquire(int acquires) {
+    final Thread current = Thread.currentThread();
+    int c = getState();
+    if (c == 0) {
+        if (compareAndSetState(0, acquires)) {
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+    } else if (current == getExclusiveOwnerThread()) {
+        int nextc = c + acquires;
+        if (nextc < 0)
+            throw new Error("Maximum lock count exceeded");
+        setState(nextc);
+        return true;
+    }
+    return false;
+}
+
+//tryReleas
+protected final boolean tryRelease(int releases) {
+    int c = getState() - releases;
+    if (Thread.currentThread() != getExclusiveOwnerThread())
+        throw new IllegalMonitorStateException();
+    boolean free = false;
+    if (c == 0) {
+        free = true;
+        setExclusiveOwnerThread(null);
+    }
+    setState(c);
+    return free;
+}
+```
+
+### 5.3.2 公平与非公平获取的区别
+>公平性与否是针对获取锁而言的，如果一个锁是公平的，那么锁的获取顺序就应该符合请求的绝对时间顺序，也就是FIFO。
+
+```
+protected final boolean tryAcquire(int acquires) {
+    final Thread current = Thread.currentThread();
+    int c = getState();
+    if (c == 0) {
+        if (!hasQueuedPredecessors() && compareAndSetState(0, acquires)) {
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+    } else if (current == getExclusiveOwnerThread()) {
+        int nextc = c + acquires;
+        if (nextc < 0)
+            throw new Error("Maximum lock count exceeded");
+        setState(nextc);
+        return true;
+    }
+    return false;
+}
+```
+
+>公平锁与非公平锁的区别：
+>>公平锁在获取锁的时候会判断队列中的节点是否有前驱节点，有前驱节点，则继续等待前驱节点获取并释放锁之后才能继续获取锁。
+>
+>公平性锁保证了锁的获取按照FIFO原则，而代价是进行大量的线程切换。非公平性锁虽然可能造成线程“饥饿”，但极少的线程切换，保证了其更大的吞吐量。
+
+## 5.4 读写锁
+>Mutex和ReentrantLock基本都是排他锁
+>
+>读写锁维护了一对锁，一个读锁和一个写锁，通过分离读锁和写锁，使得并发性相比一般的排他锁有了很大提升
+>
+>一般情况下，读写锁的性能都会比排它锁好，因为大多数场景读是多于写的。在读多于写的情况下，读写锁能够提供比排它锁更好的并发性和吞吐量。Java并发包提供读写锁的实现是ReentrantReadWriteLock，它提供的特性如下：
+|特性|说明|
+|----|---|
+|公平性选择|支持非公平（默认）和公平的锁获取方式，吞吐量还是非公平优于公平|
+|重进入|该锁支持重进入，以读写线程为例：读线程在获取了读锁之后，能再次获取读锁。而写线程在获取了写锁之后能再次获取写锁，同时也可以获取读锁|
+|锁降级|遵循获取写锁，获取读锁再释放写锁的次序，写锁能够降级称为读锁|
+
+### 5.4.1 读写锁的接口与示例
+
+ReadWriteLock仅定义了获取读锁和写锁的两个方法，即readLock()方法和writeLock()方法，而其实现——ReentrantReadWriteLock，除了接口方法之外，还提供了一些便于外界监控其内部工作状态的方法：
+|方法名称|描述|
+|-------|----|
+|int getReadLockCount()|返回当前读锁被获取的次数。该次数不等于获取锁的线程数，例如，仅一个线程，它连续获取（重进入）了n次读锁，那么占据读锁的线程数是1，但该方法返回n|
+|int getReadHoldCount()|返回当前线程获取读锁的次数。该方法在Java 6中加入到ReentrantReadWriteLock中，使用ThreadLocal保存当前线程获取的次数，这也使得Java 6的实现变得更加复杂|
+|boolean isWriteLocked()|判断写锁是否被获取|
+|int get WriteHoldCount()|返回当前写锁被获取的次数|
+
+一个缓存示例说明读写锁的使用方式：
+```
+public class Cache {
+    static Map<String, Object> map = new HashMap<String, Object>();
+    static ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+    static Lock r = rwl.readLock();
+    static Lock w = rwl.writeLock();
+
+    // 获取一个key对应的value
+    public static final Object get(String key) {
+        r.lock();
+        try {
+            return map.get(key);
+        } finally {
+            r.unlock();
+        }
+    }
+
+    // 设置key对应的value，并返回旧的value
+    public static final Object put(String key, Object value) {
+        w.lock();
+        try {
+            return map.put(key, value);
+        } finally {
+            w.unlock();
+        }
+    }
+
+    // 清空所有的内容
+    public static final void clear() {
+        w.lock();
+        try {
+            map.clear();
+        } finally {
+            w.unlock();
+        }
+    }
+}
+```
+
+### 5.4.2 读写锁的实现分析
+>分析ReentrantReadWriteLock的实现（以下没有特别说明读写锁均可认为是ReentrantReadWriteLock），主要包括：
+1. 读写状态的设计
+2. 写锁的获取与释放
+3. 读锁的获取与释放以及锁降级
+
+#### 5.4.2.1 读写状态的设计
+>如果在一个整型变量上维护多种状态，就一定需要“按位切割使用”这个变量，读写锁将变量切分成了两个部分，高16位表示读，低16位表示写
+>
+>通过位运算。假设当前同步状态值为S，写状态等于S&0x0000FFFF（将高16位全部抹去），读状态等于S>>>16（无符号补0右移16位）。当写状态增加1时，等于S+1，当读状态增加1时，等于S+(1<<16)，也就是S+0x00010000
+
+#### 5.4.2.2 写锁的获取与释放
+```
+//ReentrantReadWriteLock的tryAcquire方法
+protected final boolean tryAcquire(int acquires) {
+    Thread current = Thread.currentThread();
+    int c = getState();
+    int w = exclusiveCount(c);
+    if (c != 0) {
+        // 存在读锁或者当前获取线程不是已经获取写锁的线程
+        if (w == 0 || current != getExclusiveOwnerThread())
+            return false;
+        if (w + exclusiveCount(acquires) > MAX_COUNT)
+            throw new Error("Maximum lock count exceeded");
+        setState(c + acquires);
+        return true;
+    }
+    if (writerShouldBlock() || !compareAndSetState(c, c + acquires)) {
+        return false;
+    }
+    setExclusiveOwnerThread(current);
+    return true;
+}
+```
+>如果存在读锁，则写锁不能被获取，原因在于：读写锁要确保写锁的操作对读锁可见，如果允许读锁在已被获取的情况下对写锁的获取，那么正在运行的其他读线程就无法感知到当前写线程的操作。因此，只有等待其他读线程都释放了读锁，写锁才能被当前线程获取，而写锁一旦被获取，则其他读写线程的后续访问均被阻塞。
+
+#### 5.4.2.3 读锁的获取与释放
+```
+protected final int tryAcquireShared(int unused) {
+    for (;;) {
+        int c = getState();
+        int nextc = c + (1 << 16);
+        if (nextc < c)
+            throw new Error("Maximum lock count exceeded");
+        if (exclusiveCount(c) != 0 && owner != Thread.currentThread())
+            return -1;
+        if (compareAndSetState(c, nextc))
+            return 1;
+    }
+}
+```
+
+
+
+
+
+
+
+
+
+
 
