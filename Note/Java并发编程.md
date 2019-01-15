@@ -1091,3 +1091,106 @@ Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API
 
 ![Synchronizer Template Method](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/SynchronizerTemplateMethod.JPG?raw=true)
 
+只有掌握了同步器的工作原理才能更加深入地理解并发包中其他的并发组件，所以下面通过一个独占锁的示例来深入了解一下同步器的工作原理:
+
+```
+class Mutex implements Lock {
+    // 静态内部类，自定义同步器
+    private static class Sync extends AbstractQueuedSynchronizer {
+        // 是否处于占用状态
+        protected boolean isHeldExclusively() {
+            return getState() == 1;
+        }
+
+        // 当状态为0的时候获取锁
+        public boolean tryAcquire(int acquires) {
+            if (compareAndSetState(0, 1)) {
+                setExclusiveOwnerThread(Thread.currentThread());
+                return true;
+            }
+            return false;
+        }
+
+        // 释放锁，将状态设置为0
+        protected boolean tryRelease(int releases) {
+            if (getState() == 0)
+                throw new IllegalMonitorStateException();
+            setExclusiveOwnerThread(null);
+            setState(0);
+            return true;
+        }
+
+        // 返回一个Condition，每个condition都包含了一个condition队列
+        Condition newCondition() {
+            return new ConditionObject();
+        }
+    }
+
+    // 仅需要将操作代理到Sync上即可
+    private final Sync sync = new Sync();
+
+    public void lock() {
+        sync.acquire(1);
+    }
+
+    public boolean tryLock() {
+        return sync.tryAcquire(1);
+    }
+
+    public void unlock() {
+        sync.release(1);
+    }
+
+    public Condition newCondition() {
+        return sync.newCondition();
+    }
+
+    public boolean isLocked() {
+        return sync.isHeldExclusively();
+    }
+
+    public boolean hasQueuedThreads() {
+        return sync.hasQueuedThreads();
+    }
+
+    public void lockInterruptibly() throws InterruptedException {
+        sync.acquireInterruptibly(1);
+    }
+
+    public boolean tryLock(long timeout, TimeUnit unit) throws InterruptedException {
+        return sync.tryAcquireNanos(1, unit.toNanos(timeout));
+    }
+}
+```
+
+### 5.2.2 队列同步器的实现分析
+接下来将从实现角度分析同步器是如何完成线程同步的，主要包括：
+1. 同步队列
+2. 独占式同步状态获取与释放
+3. 共享式同步状态获取与释放
+4. 超时获取同步状态等同步器的核心数据结构与模板方法
+
+#### 5.2.2.1 同步队列
+同步器依赖内部的同步队列（一个FIFO双向队列）来完成同步状态的管理，当前线程获取同步状态失败时，同步器会将当前线程以及等待状态等信息构造成为一个节点（Node）并将其加入同步队列，同时会阻塞当前线程，当同步状态释放时，会把首节点中的线程唤醒，使其再次尝试获取同步状态。
+
+同步队列节点的属性类型、名称以及描述：
+
+|属性类型与名称|描述|
+|------------|----|
+|int waitStatus|等待状态。<br/>包含如下状态：<br/>1. CANCELLED，值为1，由于在队列中等待的先层等待超时或者被中断，需要从同步队列中取消等待，节点进入该状态将不会变化<br/>2. SIGNAL,值为-1，后继节点的线程处于等待状态，而当前节点的线程如果释放了同步状态或者被取消，将会通知后继节点，使后继节点的线程得以运行<br>3. CONDITION,值为-2，节点在等待队列中，节点线程等待在Condition上，当其他线程对Condition调用了signal()方法后，该节点将会从等待队列中转移到同步队列中，加入到对同步状态的获取之中<br>4. PROPAGATE，值为-3，表示下一次共享式同步状态将会无条件地被传播下去<br>5. INITIAL，值为0，初始状态|
+|Node prev|前驱节点，当节点加入同步队列时被设置（尾部添加）|
+|Node next|后继结点|
+|Node nextWaiter|等待队列中的后继结点。如果当前节点是共享的，那么这个字段将是一个SHARED常量，也就是说节点类型（独占和共享）和等待队列中的后继结点共用同一个字段|
+|Thread thread|获取同步状态的线程|
+
+#### 5.2.2.2 独占式同步状态获取与释放
+```
+public final void acquire(int arg) {
+    if (!tryAcquire(arg) && acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+        selfInterrupt();
+}
+```
+
+
+
+
