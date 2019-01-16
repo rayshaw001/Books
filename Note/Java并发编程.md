@@ -1702,3 +1702,679 @@ volatile V value;
 
 ### 6.2.1 ConcurrentLinkedQueue的结构
 ![ConcurrentLinkedQueue](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ConcurrentLinkedQueue.jpg?raw=true)
+
+1. head节点存储的值为空
+2. 默认tail=head
+3. 单链表结构（非数组实现）
+
+### 6.2.2 入队列
+#### 6.2.2.1 入队列的过程
+>入队列就是将入队节点添加到队列的尾部。
+
+区别于非线程安全的LinkedQueue
+1. tail节点并非一定指向尾节点
+2. 添加尾节点使用CAS算法，确保节点正确添加
+3. 使用int HOPS=1（默认值为 1），tail与尾节点的距离大于等于2时才将tail设置为尾节点，好处是避免频繁修改tail，提高性能
+
+#### 6.2.2.2 定位尾节点
+
+#### 6.2.2.3 设置入队节点为尾节点
+
+#### 6.2.2.4 HOPS的设计意图
+```
+//Simple Sample
+/**
+  * 可行，但是入队效率低，原因是频繁写tail
+  * 使用辅助变量int HOPS=1, 使得对volatile变量的写次数减少，提高了入队效率
+  */
+public boolean offer(E e) {
+    if (e == null)
+        throw new NullPointerException();
+    Node<E> n = new Node<E>(e);
+    for (;;) {
+        Node<E> t = tail;
+        if (t.casNext(null, n) && casTail(t, n)) {
+            return true;
+        }
+    }
+}
+```
+
+\# 入队方法永远返回true，所以不要通过返回值判断入队是否成功。
+
+### 6.2.3 出队列
+1. 当head节点里有元素时，直接弹出head节点里的元素，而不会更新head节点。
+2. 当head节点里没有元素时，出队操作才会更新head节点
+3. 这种做法也是通过hops变量来减少使用CAS更新head节点的消耗，从而提高出队效率。
+
+```
+public E poll() {
+    Node<E> h = head;
+    // p表示头节点，需要出队的节点
+    Node<E> p = h;
+    for (int hops = 0;; hops++) {
+        // 获取p节点的元素
+        E item = p.getItem();
+        // 如果p节点的元素不为空，使用CAS设置p节点引用的元素为null,
+        // 如果成功则返回p节点的元素。
+        if (item != null && p.casItem(item, null)) {
+            if (hops >= HOPS) {
+                // 将p节点下一个节点设置成head节点
+                Node<E> q = p.getNext();
+                updateHead(h, (q != null) q : p);
+            }
+            return item;
+        }
+        // 如果头节点的元素为空或头节点发生了变化，这说明头节点已经被另外
+        // 一个线程修改了。那么获取p节点的下一个节点
+        Node<E> next = succ(p);
+        // 如果p的下一个节点也为空，说明这个队列已经空了
+        if (next == null) {
+            // 更新头节点。
+            updateHead(h, p);
+            break;
+        }
+        // 如果下一个元素不为空，则将头节点的下一个节点设置成头节点
+        p = next;
+    }
+    return null;
+}
+```
+
+## 6.3 Java中的阻塞队列
+### 6.3.1 什么是阻塞队列
+>阻塞队列（BlockingQueue）是一个支持两个附加操作的队列。这两个附加的操作支持阻塞的插入和移除方法。
+1. 支持阻塞的插入方法：意思是当队列满时，队列会阻塞插入元素的线程，直到队列不满。
+2. 支持阻塞的移除方法：意思是在队列为空时，获取元素的线程会等待队列变为非空。
+
+插入和移除操作的4中处理方式:
+|方法/处理方式|抛出异常|返回特殊值|一直阻塞|超时退出|
+|------------|-------|----------|---------------|
+|插入方法|add(e)|offer(e)|put(e)|offer(e,time,unit)|
+|移除方法|remove()|poll()|take()|poll(time,unit)|
+|检查方法|element()|peek()|不可用|不可用|
+
+### 6.3.2 Java 里的阻塞队列
+1. ArrayBlockingQueuee：一个由数组结构组成的有界阻塞队列。
+2. LinkedBlockingQueue：一个由链表结构组成的有界阻塞队列。
+3. PriorityBlockingQueue：一个支持优先级排序的无界阻塞队列。
+4. DelayQueue：一个使用优先级队列实现的无界阻塞队列。
+5. SynchronousQueue：一个不存储元素的阻塞队列。
+6. LinkedTransferQueue：一个由链表结构组成的无界阻塞队列。
+7. LinkedBlockingDeque：一个由链表结构组成的双向阻塞队列。
+
+
+### 6.3.3 阻塞队列的实现原理
+>使用通知模式实现： 典型的例子是生产者与消费者
+```
+public final void await() throws InterruptedException {
+    if (Thread.interrupted())
+        throw new InterruptedException();
+    Node node = addConditionWaiter();
+    int savedState = fullyRelease(node);
+    int interruptMode = 0;
+    while (!isOnSyncQueue(node)) {
+        LockSupport.park(this);
+        if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
+            break;
+    }
+    if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
+        interruptMode = REINTERRUPT;
+    if (node.nextWaiter != null) // clean up if cancelled
+        unlinkCancelledWaiters();
+    if (interruptMode != 0)
+        reportInterruptAfterWait(interruptMode);
+}
+//调用setBlocker先保存一下将要阻塞的线程，然后调用unsafe.park阻塞当前线程。
+public static void park(Object blocker) {
+    Thread t = Thread.currentThread();
+    setBlocker(t, blocker);
+    unsafe.park(false, 0L);
+    setBlocker(t, null);
+}
+//unsafe.park是个native方法
+```
+park这个方法会阻塞当前线程，只有以下4种情况中的一种发生时，该方法才会返回:
+1. ·与park对应的unpark执行或已经执行时。“已经执行”是指unpark先执行，然后再执行park的情况。
+2. ·线程被中断时。
+3. ·等待完time参数指定的毫秒数时。
+4. ·异常现象发生时，这个异常现象没有任何原因。
+
+### 6.4 Fork/Join框架
+#### 6.4.1 什么是Fork/Join框架
+>Fork/Join框架是Java 7提供的一个用于并行执行任务的框架，是一个把大任务分割成若干个小任务，最终汇总每个小任务结果后得到大任务结果的框架。
+![ForkJoin Running Process](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ForkJoinRunningProcess.jpg?raw=true)
+
+### 6.4.2 工作窃取算法
+>工作窃取（work-stealing）算法是指某个线程从其他队列里窃取任务来执行。
+
+![Job Steal Algorithm](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/JobStealAlgorithm.jpg?raw=true)
+
+>工作窃取算法的优点：充分利用线程进行并行计算，减少了线程间的竞争。
+>
+>工作窃取算法的缺点：在某些情况下还是存在竞争，比如双端队列里只有一个任务时。并且该算法会消耗了更多的系统资源，比如创建多个线程和多个双端队列。
+
+### 6.4.3 Fork/Join框架的设计
+Steps:
+1. 分割任务
+2. 执行任务并合并结果
+
+Fork/Join使用两个类来完成以上两件事情。
+1. ForkJoinTask：我们要使用ForkJoin框架，必须首先创建一个ForkJoin任务。Fork/Join矿机提供以下两个子类，继承它的子类即可：
+    A. RecursiveAction：用于没有返回结果的任务。
+    B. RecursiveTask：用于有返回结果的任务。
+2. ForkJoinPool：ForkJoinTask需要通过ForkJoinPool来执行。
+\# 任务分割出的子任务会添加到当前工作线程所维护的双端队列中，进入队列的头部。当一个工作线程的队列里暂时没有任务时，它会随机从其他工作线程的队列的尾部获取一个任务。
+
+### 6.4.4 使用Fork/Join框架
+```
+//Example
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.RecursiveTask;
+
+public class CountTask extends RecursiveTask<Integer> {
+    private static final int THRESHOLD = 2; // 阈值
+    private int start;
+    private int end;
+
+    public CountTask(int start, int end) {
+        this.start = start;
+        this.end = end;
+    }
+
+    @Override
+    protected Integer compute() {
+        int sum = 0;
+        // 如果任务足够小就计算任务
+        boolean canCompute = (end - start) <= THRESHOLD;
+        if (canCompute) {
+            for (int i = start; i <= end; i++) {
+                sum += i;
+            }
+        } else {
+            // 如果任务大于阈值，就分裂成两个子任务计算
+            int middle = (start + end) / 2;
+            CountTask leftTask = new CountTask(start, middle);
+            CountTask rightTask = new CountTask(middle + 1, end);
+            // 执行子任务
+            leftTask.fork();
+            rightTask.fork();
+            // 等待子任务执行完，并得到其结果
+            int leftResult = leftTask.join();
+            int rightResult = rightTask.join();
+            // 合并子任务
+            sum = leftResult + rightResult;
+        }
+        return sum;
+    }
+
+    public static void main(String[] args) {
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        // 生成一个计算任务，负责计算1+2+3+4
+        CountTask task = new CountTask(1, 4);
+        // 执行一个任务
+        Future<Integer> result = forkJoinPool.submit(task);
+        try {
+            System.out.println(result.get());
+        } catch (InterruptedException e) {
+        } catch (ExecutionException e) {
+        }
+    }
+}
+```
+
+### 6.4.5 Fork/Join框架的异常处理
+```
+if(task.isCompletedAbnormally()){
+    System.out.println(task.getException());
+}
+```
+\# getException方法返回Throwable对象，如果任务被取消了则返回CancellationException。如果任务没有完成或者没有抛出异常则返回null。
+
+### 6.4.6 Fork/Join框架的实现原理
+ForkJoinPool由ForkJoinTask数组和ForkJoinWorkerThread数组组成，ForkJoinTask数组负责将存放程序提交给ForkJoinPool的任务，而ForkJoinWorkerThread数组负责执行这些任务。
+#### 6.4.6.1 ForkJoinTask的fork方法实现原理
+>当我们调用ForkJoinTask的fork方法时，程序会调用ForkJoinWorkerThread的pushTask方法异步地执行这个任务，然后立即返回结果
+```
+public final ForkJoinTask<V> fork() {
+    ((ForkJoinWorkerThread) Thread.currentThread())
+    .pushTask(this);
+    return this;
+}
+```
+>pushTask方法把当前任务存放在ForkJoinTask数组队列里。然后再调用ForkJoinPool的signalWork()方法唤醒或创建一个工作线程来执行任务
+```
+final void pushTask(ForkJoinTask<> t) {
+    ForkJoinTask<>[] q; int s, m;
+    if ((q = queue) != null) { // ignore if queue removed
+        long u = (((s = queueTop) & (m = q.length - 1)) << ASHIFT) + ABASE;
+        UNSAFE.putOrderedObject(q, u, t);
+        queueTop = s + 1; // or use putOrderedInt
+        if ((s -= queueBase) <= 2)
+            pool.signalWork();
+        else if (s == m)
+            growQueue();
+    }
+}
+```
+
+#### 6.4.6.2 ForkJoinTask的join方法实现原理
+>Join方法的主要作用是阻塞当前线程并等待获取结果。让我们一起看看ForkJoinTask的join方法的实现
+```
+public final V join() {
+    if (doJoin() != NORMAL)
+        return reportResult();
+    else
+        return getRawResult();
+}
+private V reportResult() {
+        int s; Throwable ex;
+        if ((s = status) == CANCELLED)
+            throw new CancellationException();
+        if (s == EXCEPTIONAL && (ex = getThrowableException()) != null)
+            UNSAFE.throwException(ex);
+    return getRawResult();
+}
+```
+>首先，它调用了doJoin()方法，通过doJoin()方法得到当前任务的状态来判断返回什么结果，任务状态有4种：已完成（NORMAL）、被取消（CANCELLED）、信号（SIGNAL）和出现异常（EXCEPTIONAL）。
+1. ·如果任务状态是已完成，则直接返回任务结果。
+2. ·如果任务状态是被取消，则直接抛出CancellationException。
+3. ·如果任务状态是抛出异常，则直接抛出对应的异常。
+```
+private int doJoin() {
+    Thread t; ForkJoinWorkerThread w; int s; boolean completed;
+    if ((t = Thread.currentThread()) instanceof ForkJoinWorkerThread) {
+        if ((s = status) < 0)
+            return s;
+        if ((w = (ForkJoinWorkerThread)t).unpushTask(this)) {
+            try {
+                completed = exec();
+            } catch (Throwable rex) {
+                return setExceptionalCompletion(rex);
+            }
+            if (completed)
+                return setCompletion(NORMAL);
+        }
+        return w.joinTask(this);
+    }
+    else
+        return externalAwaitDone();
+}
+```
+
+>在doJoin()方法里，首先通过查看任务的状态，看任务是否已经执行完成，如果执行完成，则直接返回任务状态；如果没有执行完，则从任务数组里取出任务并执行。如果任务顺利执行完成，则设置任务状态为NORMAL，如果出现异常，则记录异常，并将任务状态设置为EXCEPTIONAL。
+
+# 7 Java中的13个原子操作类
+>1.5开始提供了java.util.concurrent.atomic包（以下简称Atomic包），这个包中的原子操作类提供了一种用法简单、性能高效、线程安全地更新一个变量的方式。
+>
+>因为变量的类型有很多种，所以在Atomic包里一共提供了13个类，属于4种类型的原子更新方式，分别是原子更新基本类型、原子更新数组、原子更新引用和原子更新属性（字段）。
+
+## 7.1 原子更新基本类型类
+> 使用原子的方式更新基本类型，Atomic包提供了以下3个类。
+1. ·AtomicBoolean：原子更新布尔类型。
+2. ·AtomicInteger：原子更新整型。
+3. ·AtomicLong：原子更新长整型
+>以上3个类提供的方法几乎一模一样，所以本节仅以AtomicInteger为例进行讲解，AtomicInteger的常用方法如下:
+1. ·int addAndGet（int delta）：以原子方式将输入的数值与实例中的值（AtomicInteger里的value）相加，并返回结果。
+2. ·boolean compareAndSet（int expect，int update）：如果输入的数值等于预期值，则以原子方式将该值设置为输入的值。
+3. ·int getAndIncrement()：以原子方式将当前值加1，注意，这里返回的是自增前的值。
+4. ·void lazySet（int newValue）：最终会设置成newValue，使用lazySet设置值后，可能导致其他线程在之后的一小段时间内还是可以读到旧的值。
+5. ·int getAndSet（int newValue）：以原子方式设置为newValue的值，并返回旧值。
+
+```
+//Example：
+import java.util.concurrent.atomic.AtomicInteger;
+public class AtomicIntegerTest {
+    static AtomicInteger ai = new AtomicInteger(1);
+    public static void main(String[] args) {
+        System.out.println(ai.getAndIncrement());
+        System.out.println(ai.get());
+    }
+}
+```
+
+## 7.2 原子更新数组
+>通过原子的方式更新数组里的某个元素，Atomic包提供了以下4个类:
+```
+1. AtomicIntegerArray：原子更新整型数组里的元素。
+2. AtomicLongArray：原子更新长整型数组里的元素。
+3. AtomicReferenceArray：原子更新引用类型数组里的元素。
+4. tomicIntegerArray类主要是提供原子的方式更新数组里的整型，其常用方法如下。
+    A. ·int addAndGet（int i，int delta）：以原子方式将输入值与数组中索引i的元素相加。
+    B. ·boolean compareAndSet（int i，int expect，int update）：如果当前值等于预期值，则以原子方式将数组位置i的元素设置成update值。
+```
+>以上几个类提供的方法几乎一样，所以本节仅以AtomicIntegerArray为例进行讲解，AtomicIntegerArray的使用实例代码如代码清单如下:
+```
+public class AtomicIntegerArrayTest {
+    static int[] value = new int[] { 1， 2 };
+    static AtomicIntegerArray ai = new AtomicIntegerArray(value);
+    public static void main(String[] args) {
+        ai.getAndSet(0， 3);
+        System.out.println(ai.get(0));
+        System.out.println(value[0]);
+    }
+}
+//output:
+//3
+//1
+```
+\# 需要注意的是，数组value通过构造方法传递进去，然后AtomicIntegerArray会将当前数组复制一份，所以当AtomicIntegerArray对内部的数组元素进行修改时，不会影响传入的数组。
+
+##7.3 原子更新引用类型
+>原子更新基本类型的AtomicInteger，只能更新一个变量，如果要原子更新多个变量，就需要使用这个原子更新引用类型提供的类。Atomic包提供了以下3个类。
+1. ·AtomicReference：原子更新引用类型。
+2. ·AtomicReferenceFieldUpdater：原子更新引用类型里的字段。
+3. ·AtomicMarkableReference：原子更新带有标记位的引用类型。可以原子更新一个布尔类型的标记位和引用类型。构造方法是AtomicMarkableReference（V initialRef，booleaninitialMark）。
+>以上几个类提供的方法几乎一样，所以本节仅以AtomicReference为例进行讲解，AtomicReference的使用示例代码如代码清单
+```
+public class AtomicReferenceTest {
+    public static AtomicReference<User> atomicUserRef = new AtomicReference<User>();
+    public static void main(String[] args) {
+        User user = new User("conan"， 15);
+        atomicUserRef.set(user);
+        User updateUser = new User("Shinichi"， 17);
+        atomicUserRef.compareAndSet(user， updateUser);
+        System.out.println(atomicUserRef.get().getName());
+        System.out.println(atomicUserRef.get().getOld());
+    }
+    static class User {
+        private String name;
+        private int old;
+        public User(String name， int old) {
+            this.name = name;
+            this.old = old;
+        }
+        public String getName() {
+            return name;
+        }
+        public int getOld() {
+            return old;
+        }
+    }
+}
+//output:
+//Shinichi
+//17
+```
+\# 代码中首先构建一个user对象，然后把user对象设置进AtomicReferenc中，最后调用compareAndSet方法进行原子更新操作，实现原理同AtomicInteger里的compareAndSet方法。
+
+## 7.4 原子更新字段
+>如果需原子地更新某个类里的某个字段时，就需要使用原子更新字段类，Atomic包提供了以下3个类进行原子字段更新
+1. ·AtomicIntegerFieldUpdater：原子更新整型的字段的更新器。
+2. ·AtomicLongFieldUpdater：原子更新长整型字段的更新器。
+3. ·AtomicStampedReference：原子更新带有版本号的引用类型。该类将整数值与引用关联起来，可用于原子的更新数据和数据的版本号，可以解决使用CAS进行原子更新时可能出现的ABA问题。
+>要想原子地更新字段类需要两步。第一步，因为原子更新字段类都是抽象类，每次使用的时候必须使用静态方法newUpdater()创建一个更新器，并且需要设置想要更新的类和属性。第二步，更新类的字段（属性）必须使用public volatile修饰符。
+
+```
+public class AtomicIntegerFieldUpdaterTest {
+    // 创建原子更新器，并设置需要更新的对象类和对象的属性
+    private static AtomicIntegerFieldUpdater<User> a = AtomicIntegerFieldUpdater.newUpdater(User.class， "old");
+    public static void main(String[] args) {
+        // 设置柯南的年龄是10岁
+        User conan = new User("conan"， 10);
+        // 柯南长了一岁，但是仍然会输出旧的年龄
+        System.out.println(a.getAndIncrement(conan));
+        // 输出柯南现在的年龄
+        System.out.println(a.get(conan));
+    }
+    public static class User {
+        private String name;
+        public volatile int old;
+        public User(String name， int old) {
+            this.name = name;
+            this.old = old;
+        }
+        public String getName() {
+            return name;
+        }
+        public int getOld() {
+            return old;
+        }
+    }
+}
+//output:
+//10
+//11
+```
+
+# 8 Java中的并发工具类
+>在JDK的并发包里提供了几个非常有用的并发工具类。
+>
+>CountDownLatch、CyclicBarrier和Semaphore工具类提供了一种并发流程控制的手段
+>
+>Exchanger工具类则提供了在线程间交换数据的一种手段
+
+## 8.1 等待多线程完成的CountDownLatch
+> 与join有相似的功能，但CountDownLatch功能更丰富
+```
+public class CountDownLatchTest {
+    staticCountDownLatch c = new CountDownLatch(2);
+    public static void main(String[] args) throws InterruptedException {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println(1);
+                c.countDown();
+                System.out.println(2);
+                c.countDown();
+            }
+        }).start();
+        c.await();
+        System.out.println("3");
+    }
+}
+```
+>以可以使用另外一个带指定时间的await方法——await（long time，TimeUnit unit），这个方法等待特定时间后，就会不再阻塞当前线程。join也有类似的方法。
+\# 计数器必须大于等于0，只是等于0时候，计数器就是零，调用await方法时不会阻塞当前线程。CountDownLatch不可能重新初始化或者修改CountDownLatch对象的内部计数器的值。一个线程调用countDown方法happen-before，另外一个线程调用await方法。
+
+## 8.2 同步屏障CyclicBarrie
+>它要做的事情是，让一组线程到达一个屏障（也可以叫同步点）时被阻塞，直到最后一个线程到达屏障时，屏障才会开门，所有被屏障拦截的线程才会继续运行。
+```
+public class CyclicBarrierTest {
+    staticCyclicBarrier c = new CyclicBarrier(2);
+
+    public static void main(String[] args) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    c.await();
+                } catch (Exception e) {
+                }
+                System.out.println(1);
+            }
+        }).start();
+        try {
+            c.await();
+        } catch (Exception e) {
+        }
+        System.out.println(2);
+    }
+}
+//An Advance Example
+import java.util.concurrent.CyclicBarrier;
+
+public class CyclicBarrierTest2 {
+    //A.run() will run before main thread and sub thread
+    //在指定数量的线程到达屏障时，优先执行A.run()
+    static CyclicBarrier c = new CyclicBarrier(2, new A());
+
+    public static void main(String[] args) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    c.await();
+                } catch (Exception e) {
+                }
+                System.out.println(1);
+            }
+        }).start();
+        try {
+            c.await();
+        } catch (Exception e) {
+        }
+        System.out.println(2);
+    }
+
+    static class A implements Runnable {
+        @Override
+        public void run() {
+            System.out.println(3);
+        }
+    }
+}
+```
+
+### 8.2.2 CyclicBarrier的应用场景
+```
+import java.util.Map.Entry;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+/**
+* 银行流水处理服务类
+*
+* @authorftf
+*
+*/
+publicclass BankWaterService implements Runnable{
+    /**
+     * 创建4个屏障，处理完之后执行当前类的run方法
+     */
+    private CyclicBarrier c = new CyclicBarrier(4, this);
+    /**
+     * 假设只有4个sheet，所以只启动4个线程
+     */
+    private Executor executor = Executors.newFixedThreadPool(4);
+    /**
+     * 保存每个sheet计算出的银流结果
+     */
+    private ConcurrentHashMap<String, Integer> sheetBankWaterCount = new ConcurrentHashMap<String, Integer>();
+
+    private void count() {
+        for (inti = 0; i < 4; i++) {
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    // 计算当前sheet的银流数据，计算代码省略
+                    sheetBankWaterCount.put(Thread.currentThread().getName(), 1);
+                    // 银流计算完成，插入一个屏障
+                    try {
+                        c.await();
+                    } catch (InterruptedException | BrokenBarrierException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+    }
+
+    @Override
+    public void run() {
+        intresult = 0;
+        // 汇总每个sheet计算出的结果
+        for (Entry<String, Integer> sheet : sheetBankWaterCount.entrySet()) {
+            result += sheet.getValue();
+        }
+        // 将结果输出
+        sheetBankWaterCount.put("result", result);
+        System.out.println(result);
+    }
+
+    public static void main(String[] args) {
+        BankWaterService bankWaterCount = new BankWaterService();
+        bankWaterCount.count();
+    }
+}
+
+```
+
+### 8.2.3 CyclicBarrier和CountDownLatch的区别
+>CountDownLatch的计数器只能使用一次，而CyclicBarrier的计数器可以使用reset()方法重置。所以CyclicBarrier能处理更为复杂的业务场景。例如，如果计算发生错误，可以重置计数器，并让线程重新执行一次。
+>
+>CyclicBarrier还提供其他有用的方法，比如getNumberWaiting方法可以获得Cyclic-Barrier阻塞的线程数量。isBroken()方法用来了解阻塞的线程是否被中断
+
+## 8.3 控制并发线程数的Semaphore
+>Semaphore（信号量）是用来控制同时访问特定资源的线程数量，它通过协调各个线程，以保证合理的使用公共资源。
+
+### 8.3.1 应用场景 --- 限制线程并发数
+```
+class SemaphoreTest {
+    private static final int THREAD_COUNT = 30;
+    private static ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_COUNT);
+    private static Semaphore s = new Semaphore(10);
+
+    public static void main(String[] args) {
+        for (inti = 0; i < THREAD_COUNT; i++) {
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        s.acquire();
+                        System.out.println("save data");
+                        s.release();
+                    } catch (InterruptedException e) {
+                    }
+                }
+            });
+        }
+        threadPool.shutdown();
+    }
+}
+```
+
+### 8.3.2 其他方法
+1. ·intavailablePermits()：返回此信号量中当前可用的许可证数。
+2. ·intgetQueueLength()：返回正在等待获取许可证的线程数。
+3. ·booleanhasQueuedThreads()：是否有线程正在等待获取许可证。
+4. ·void reducePermits（int reduction）：减少reduction个许可证，是个protected方法。
+5. ·Collection getQueuedThreads()：返回所有等待获取许可证的线程集合，是个protected方法。
+
+## 8.4 线程间交换数据的Exchanger
+>Exchanger用于进行线程间的数据交换。它提供一个同步点，在这个同步点，两个线程可以交换彼此的数据。这两个线程通过exchange方法交换数据，如果第一个线程先执行exchange()方法，它会一直等待第二个线程也执行exchange方法，当两个线程都到达同步点时，这两个线程就可以交换数据，将本线程生产出来的数据传递给对方。
+```
+public class ExchangerTest {
+    private static final Exchanger<String> exgr = new Exchanger<String>();
+    private static ExecutorService threadPool = Executors.newFixedThreadPool(2);
+
+    public static void main(String[] args) {
+        threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String A = "银行流水A"; // A录入银行流水数据
+                    exgr.exchange(A);
+                } catch (InterruptedException e) {
+                }
+            }
+        });
+        threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String B = "银行流水B"; // B录入银行流水数据
+                    String A = exgr.exchange("B");
+                    System.out.println("A和B数据是否一致：" + A.equals(B) + "，A录入的是：" + A + "，B录入是：" + B);
+                } catch (InterruptedException e) {
+                }
+            }
+        });
+        threadPool.shutdown();
+    }
+}
+```
+>如果两个线程有一个没有执行exchange()方法，则会一直等待，如果担心有特殊情况发生，避免一直等待，可以使用exchange（V x，longtimeout，TimeUnit unit）设置最大等待时长。
+
+# 9 Java中的线程池
+合理地使用线程池能够带来3个好处:
+1. 降低资源消耗。通过重复利用已创建的线程降低线程创建和销毁造成的消耗。
+2. 提高响应速度。当任务到达时，任务可以不需要等到线程创建就能立即执行。
+3. 提高线程的可管理性。线程是稀缺资源，如果无限制地创建，不仅会消耗系统资源，还会降低系统的稳定性，使用线程池可以进行统一分配、调优和监控。但是，要做到合理利用线程池，必须对其实现原理了如指掌。
+
+## 9.1 线程池的实现原理
