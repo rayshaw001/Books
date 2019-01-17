@@ -2017,10 +2017,13 @@ private int doJoin() {
 
 ## 7.1 原子更新基本类型类
 > 使用原子的方式更新基本类型，Atomic包提供了以下3个类。
+
 1. ·AtomicBoolean：原子更新布尔类型。
 2. ·AtomicInteger：原子更新整型。
 3. ·AtomicLong：原子更新长整型
+
 >以上3个类提供的方法几乎一模一样，所以本节仅以AtomicInteger为例进行讲解，AtomicInteger的常用方法如下:
+
 1. ·int addAndGet（int delta）：以原子方式将输入的数值与实例中的值（AtomicInteger里的value）相加，并返回结果。
 2. ·boolean compareAndSet（int expect，int update）：如果输入的数值等于预期值，则以原子方式将该值设置为输入的值。
 3. ·int getAndIncrement()：以原子方式将当前值加1，注意，这里返回的是自增前的值。
@@ -2041,6 +2044,7 @@ public class AtomicIntegerTest {
 
 ## 7.2 原子更新数组
 >通过原子的方式更新数组里的某个元素，Atomic包提供了以下4个类:
+
 ```
 1. AtomicIntegerArray：原子更新整型数组里的元素。
 2. AtomicLongArray：原子更新长整型数组里的元素。
@@ -2066,12 +2070,15 @@ public class AtomicIntegerArrayTest {
 ```
 \# 需要注意的是，数组value通过构造方法传递进去，然后AtomicIntegerArray会将当前数组复制一份，所以当AtomicIntegerArray对内部的数组元素进行修改时，不会影响传入的数组。
 
-##7.3 原子更新引用类型
+## 7.3 原子更新引用类型
 >原子更新基本类型的AtomicInteger，只能更新一个变量，如果要原子更新多个变量，就需要使用这个原子更新引用类型提供的类。Atomic包提供了以下3个类。
+
 1. ·AtomicReference：原子更新引用类型。
 2. ·AtomicReferenceFieldUpdater：原子更新引用类型里的字段。
 3. ·AtomicMarkableReference：原子更新带有标记位的引用类型。可以原子更新一个布尔类型的标记位和引用类型。构造方法是AtomicMarkableReference（V initialRef，booleaninitialMark）。
+
 >以上几个类提供的方法几乎一样，所以本节仅以AtomicReference为例进行讲解，AtomicReference的使用示例代码如代码清单
+
 ```
 public class AtomicReferenceTest {
     public static AtomicReference<User> atomicUserRef = new AtomicReference<User>();
@@ -2102,13 +2109,16 @@ public class AtomicReferenceTest {
 //Shinichi
 //17
 ```
+
 \# 代码中首先构建一个user对象，然后把user对象设置进AtomicReferenc中，最后调用compareAndSet方法进行原子更新操作，实现原理同AtomicInteger里的compareAndSet方法。
 
 ## 7.4 原子更新字段
 >如果需原子地更新某个类里的某个字段时，就需要使用原子更新字段类，Atomic包提供了以下3个类进行原子字段更新
+
 1. ·AtomicIntegerFieldUpdater：原子更新整型的字段的更新器。
 2. ·AtomicLongFieldUpdater：原子更新长整型字段的更新器。
 3. ·AtomicStampedReference：原子更新带有版本号的引用类型。该类将整数值与引用关联起来，可用于原子的更新数据和数据的版本号，可以解决使用CAS进行原子更新时可能出现的ABA问题。
+
 >要想原子地更新字段类需要两步。第一步，因为原子更新字段类都是抽象类，每次使用的时候必须使用静态方法newUpdater()创建一个更新器，并且需要设置想要更新的类和属性。第二步，更新类的字段（属性）必须使用public volatile修饰符。
 
 ```
@@ -2152,6 +2162,7 @@ public class AtomicIntegerFieldUpdaterTest {
 
 ## 8.1 等待多线程完成的CountDownLatch
 > 与join有相似的功能，但CountDownLatch功能更丰富
+
 ```
 public class CountDownLatchTest {
     staticCountDownLatch c = new CountDownLatch(2);
@@ -2171,6 +2182,7 @@ public class CountDownLatchTest {
 }
 ```
 >以可以使用另外一个带指定时间的await方法——await（long time，TimeUnit unit），这个方法等待特定时间后，就会不再阻塞当前线程。join也有类似的方法。
+
 \# 计数器必须大于等于0，只是等于0时候，计数器就是零，调用await方法时不会阻塞当前线程。CountDownLatch不可能重新初始化或者修改CountDownLatch对象的内部计数器的值。一个线程调用countDown方法happen-before，另外一个线程调用await方法。
 
 ## 8.2 同步屏障CyclicBarrie
@@ -2380,6 +2392,7 @@ public class ExchangerTest {
 
 # 9 Java中的线程池
 合理地使用线程池能够带来3个好处:
+
 1. 降低资源消耗。通过重复利用已创建的线程降低线程创建和销毁造成的消耗。
 2. 提高响应速度。当任务到达时，任务可以不需要等到线程创建就能立即执行。
 3. 提高线程的可管理性。线程是稀缺资源，如果无限制地创建，不仅会消耗系统资源，还会降低系统的稳定性，使用线程池可以进行统一分配、调优和监控。但是，要做到合理利用线程池，必须对其实现原理了如指掌。
