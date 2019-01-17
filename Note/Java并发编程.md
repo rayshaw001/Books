@@ -1100,10 +1100,7 @@ Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API
 
 
 ```
-/**
-  * Mutex.java
-  *
-  */
+//Mutex.java
 class Mutex implements Lock {
     // 静态内部类，自定义同步器
     private static class Sync extends AbstractQueuedSynchronizer {
