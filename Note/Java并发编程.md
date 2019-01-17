@@ -2456,10 +2456,376 @@ public class ExchangerTest {
 >如果两个线程有一个没有执行exchange()方法，则会一直等待，如果担心有特殊情况发生，避免一直等待，可以使用exchange（V x，longtimeout，TimeUnit unit）设置最大等待时长。
 
 # 9 Java中的线程池
-合理地使用线程池能够带来3个好处:
+>合理地使用线程池能够带来3个好处:
 
 1. 降低资源消耗。通过重复利用已创建的线程降低线程创建和销毁造成的消耗。
 2. 提高响应速度。当任务到达时，任务可以不需要等到线程创建就能立即执行。
 3. 提高线程的可管理性。线程是稀缺资源，如果无限制地创建，不仅会消耗系统资源，还会降低系统的稳定性，使用线程池可以进行统一分配、调优和监控。但是，要做到合理利用线程池，必须对其实现原理了如指掌。
 
 ## 9.1 线程池的实现原理
+>当向线程池提交一个任务之后，线程池是如何处理这个任务的呢？
+
+1. 线程池判断核心线程池里的线程是否都在执行任务。如果不是，则创建一个新的工作线程来执行任务。如果核心线程池里的线程都在执行任务，则进入下个流程。
+2. 线程池判断工作队列是否已经满。如果工作队列没有满，则将新提交的任务存储在这个工作队列里。如果工作队列满了，则进入下个流程。
+3. 线程池判断线程池的线程是否都处于工作状态。如果没有，则创建一个新的工作线程来执行任务。如果已经满了，则交给饱和策略来处理这个任务。
+
+![ThreadPool Main Process Flow](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ThreadPoolMainProcessFlow.jpg?raw=true)
+
+![ThreadPoolExecutor Execute Sample](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ThreadPoolExecutorExecuteSample.jpg?raw=true)
+
+>ThreadPoolExecutor执行execute方法分下面4种情况。
+
+1. 如果当前运行的线程少于corePoolSize，则创建新线程来执行任务（注意，执行这一步骤需要获取全局锁）。
+2. 如果运行的线程等于或多于corePoolSize，则将任务加入BlockingQueue。
+3. 如果无法将任务加入BlockingQueue（队列已满），则创建新的线程来处理任务（注意，执行这一步骤需要获取全局锁）。
+4. 如果创建新线程将使当前运行的线程超出maximumPoolSize，任务将被拒绝，并调用RejectedExecutionHandler.rejectedExecution()方法。
+
+>线程池中的线程执行任务分两种情况，如下。
+1. 在execute()方法中创建一个线程时，会让这个线程执行当前任务。
+2. 这个线程执行完上图中1的任务后，会反复从BlockingQueue获取任务来执行。
+
+## 9.2 线程池的使用
+### 9.2.1 线程池的创建
+>我们可以通过ThreadPoolExecutor来创建一个线程池。
+
+```
+new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, milliseconds,runnableTaskQueue, handler);
+```
+>创建一个线程池时需要输入几个参数，如下。
+
+1. corePoolSize（线程池的基本大小）：当提交一个任务到线程池时，线程池会创建一个线程来执行任务，即使其他空闲的基本线程能够执行新任务也会创建线程，等到需要执行的任务数大于线程池基本大小时就不再创建。如果调用了线程池的prestartAllCoreThreads()方法，线程池会提前创建并启动所有基本线程。
+2. runnableTaskQueue（任务队列）：用于保存等待执行的任务的阻塞队列。可以选择以下几个阻塞队列。
+    ·ArrayBlockingQueue：是一个基于数组结构的有界阻塞队列，此队列按FIFO（先进先出）原则对元素进行排序。
+    ·LinkedBlockingQueue：一个基于链表结构的阻塞队列，此队列按FIFO排序元素，吞吐量通常要高于ArrayBlockingQueue。静态工厂方法Executors.newFixedThreadPool()使用了这个队列。
+    ·SynchronousQueue：一个不存储元素的阻塞队列。每个插入操作必须等到另一个线程调用移除操作，否则插入操作一直处于阻塞状态，吞吐量通常要高于Linked-BlockingQueue，静态工厂方法Executors.newCachedThreadPool使用了这个队列。
+    ·PriorityBlockingQueue：一个具有优先级的无限阻塞队列。
+3. maximumPoolSize（线程池最大数量）：线程池允许创建的最大线程数。如果队列满了，并且已创建的线程数小于最大线程数，则线程池会再创建新的线程执行任务。值得注意的是，如果使用了无界的任务队列这个参数就没什么效果。
+4. ThreadFactory：用于设置创建线程的工厂，可以通过线程工厂给每个创建出来的线程设置更有意义的名字。使用开源框架guava提供的ThreadFactoryBuilder可以快速给线程池里的线程设置有意义的名字，代码如下。
+    ```
+    new ThreadFactoryBuilder().setNameFormat("XX-task-%d").build();
+    ```
+5. RejectedExecutionHandler（饱和策略）：当队列和线程池都满了，说明线程池处于饱和状态，那么必须采取一种策略处理提交的新任务。这个策略默认情况下是AbortPolicy，表示无法处理新任务时抛出异常。在JDK 1.5中Java线程池框架提供了以下4种策略。
+    ·AbortPolicy：直接抛出异常。
+    ·CallerRunsPolicy：只用调用者所在线程来运行任务。
+    ·DiscardOldestPolicy：丢弃队列里最近的一个任务，并执行当前任务。
+    ·DiscardPolicy：不处理，丢弃掉。
+    当然，也可以根据应用场景需要来实现RejectedExecutionHandler接口自定义策略。如记录日志或持久化存储不能处理的任务。
+        ·keepAliveTime（线程活动保持时间）：线程池的工作线程空闲后，保持存活的时间。所以，如果任务很多，并且每个任务执行的时间比较短，可以调大时间，提高线程的利用率。
+        ·TimeUnit（线程活动保持时间的单位）：可选的单位有天（DAYS）、小时（HOURS）、分钟（MINUTES）、毫秒（MILLISECONDS）、微秒（MICROSECONDS，千分之一毫秒）和纳秒（NANOSECONDS，千分之一微秒）。
+
+### 9.2.2 向线程池提交任务
+>execute()和submit()
+
+1. execute()方法用于提交不需要返回值的任务
+
+```
+threadsPool.execute(new Runnable() {
+    @Override
+    public void run() {
+        // TODO Auto-generated method stub
+    }
+});
+```
+2. submit()方法用于提交需要返回值的任务。线程池会返回一个future类型的对象。
+
+```
+Future<Object> future = executor.submit(harReturnValuetask);
+try {
+    Object s = future.get();
+} catch (InterruptedException e) {
+    // 处理中断异常
+} catch (ExecutionException e) {
+    // 处理无法执行任务异常
+} finally {
+    // 关闭线程池
+    executor.shutdown();
+}
+```
+
+### 9.2.3 关闭线程池
+>shutdown()和shutdownNow()
+
+1. shutdownNow首先将线程池的状态设置成STOP，然后尝试停止所有的正在执行或暂停任务的线程，并返回等待执行任务的列表
+2. shutdown只是将线程池的状态设置成SHUTDOWN状态，然后中断所有没有正在执行任务的线程。
+
+\# 通常调用shutdown方法来关闭线程池，如果任务不一定要执行完，则可以调用shutdownNow方法。
+
+### 9.2.4 合理地配置线程池
+>要想合理地配置线程池，就必须首先分析任务特性，可以从以下几个角度来分析。
+
+1. ·任务的性质：CPU密集型任务、IO密集型任务和混合型任务。
+2. ·任务的优先级：高、中和低。
+3. ·任务的执行时间：长、中和短。
+4. ·任务的依赖性：是否依赖其他系统资源，如数据库连接。
+
+\# 建议使用有界队列。有界队列能增加系统的稳定性和预警能力，可以根据需要设大一点儿
+
+### 9.2.5 线程池的监控
+>如果在系统中大量使用线程池，则有必要对线程池进行监控，方便在出现问题时，可以根据线程池的使用状况快速定位问题。可以通过线程池提供的参数进行监控，在监控线程池的时候可以使用以下属性。
+
+1. ·taskCount：线程池需要执行的任务数量。
+2. ·completedTaskCount：线程池在运行过程中已完成的任务数量，小于或等于taskCount。
+3. ·largestPoolSize：线程池里曾经创建过的最大线程数量。通过这个数据可以知道线程池是否曾经满过。如该数值等于线程池的最大大小，则表示线程池曾经满过。
+4. ·getPoolSize：线程池的线程数量。如果线程池不销毁的话，线程池里的线程不会自动销毁，所以这个大小只增不减。
+5. ·getActiveCount：获取活动的线程数。
+
+>通过扩展线程池进行监控。可以通过继承线程池来自定义线程池，重写线程池的beforeExecute、afterExecute和terminated方法(这几个方法在线程池里是空方法)，也可以在任务执行前、执行后和线程池关闭前执行一些代码来进行监控。
+
+# 10 Executor 框架
+>在Java中，使用线程来异步执行任务。Java线程的创建与销毁需要一定的开销，如果我们为每一个任务创建一个新线程来执行，这些线程的创建与销毁将消耗大量的计算资源。同时，为每一个任务创建一个新线程来执行，这种策略可能会使处于高负荷状态的应用最终崩溃。
+>
+>Java的线程既是工作单元，也是执行机制。从JDK 5开始，把工作单元与执行机制分离开来。工作单元包括Runnable和Callable，而执行机制由Executor框架提供。
+
+## 10.1 Executor框架简介
+### 10.1.1 Executor框架的两级调度模型
+>在HotSpot VM的线程模型中，Java线程（java.lang.Thread）被一对一映射为本地操作系统线程。Java线程启动时会创建一个本地操作系统线程；当该Java线程终止时，这个操作系统线程也会被回收。操作系统会调度所有线程并将它们分配给可用的CPU。
+>
+>在上层，Java多线程程序通常把应用分解为若干个任务，然后使用用户级的调度器（Executor框架）将这些任务映射为固定数量的线程；在底层，操作系统内核将这些线程映射到硬件处理器上。
+>
+>应用程序通过Executor框架控制上层的调度；而下层的调度由操作系统内核控制，下层的调度不受应用程序的控制。
+
+![Two Level Schedule Model Of Task](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/TwoLevelScheduleModelOfTask.jpg?raw=true)
+
+### 10.1.2 Executor框架的结构与成员
+>分两部分来介绍Executor：Executor的结构和Executor框架包含的成员组件。
+
+#### 10.1.2.1 Executor框架的结构
+>Executor框架主要由3大部分组成如下。
+
+1. ·任务。包括被执行任务需要实现的接口：Runnable接口或Callable接口。
+2. ·任务的执行。包括任务执行机制的核心接口Executor，以及继承自Executor的ExecutorService接口。Executor框架有两个关键类实现了ExecutorService接口（ThreadPoolExecutor和ScheduledThreadPoolExecutor）。
+3. ·异步计算的结果。包括接口Future和实现Future接口的FutureTask类。
+
+>Executor框架包含的主要的类与接口
+
+1. ·Executor是一个接口，它是Executor框架的基础，它将任务的提交与任务的执行分离开来。
+2. ·ThreadPoolExecutor是线程池的核心实现类，用来执行被提交的任务。
+3. ·ScheduledThreadPoolExecutor是一个实现类，可以在给定的延迟后运行命令，或者定期执行命令。ScheduledThreadPoolExecutor比Timer更灵活，功能更强大。
+4. ·Future接口和实现Future接口的FutureTask类，代表异步计算的结果。
+5. ·Runnable接口和Callable接口的实现类，都可以被ThreadPoolExecutor或Scheduled-ThreadPoolExecutor执行。
+
+![Executor Framework Class And Interface](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ExecutorFrameworkClassAndInterface.jpg?raw=true)
+
+![Executor Framework Usage Sample](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ExecutorFrameworkUsageSample.jpg?raw=true)
+
+#### 10.1.2.2 Executor框架的成员
+>本节将介绍Executor框架的主要成员：ThreadPoolExecutor、ScheduledThreadPoolExecutor、Future接口、Runnable接口、Callable接口和Executors。
+
+1. ThreadPoolExecutor
+
+```
+ThreadPoolExecutor通常使用工厂类Executors来创建。Executors可以创建3种类型的ThreadPoolExecutor：SingleThreadExecutor、FixedThreadPool和CachedThreadPool。
+下面分别介绍这3种ThreadPoolExecutor。
+    1. FixedThreadPool。下面是Executors提供的，创建使用固定线程数的FixedThreadPool的API。
+    public static ExecutorService newFixedThreadPool(int nThreads)
+    public static ExecutorService newFixedThreadPool(int nThreads, ThreadFactorythreadFactory)
+    FixedThreadPool适用于为了满足资源管理的需求，而需要限制当前线程数量的应用场景，它适用于负载比较重的服务器。
+    2. SingleThreadExecutor。下面是Executors提供的，创建使用单个线程的SingleThread-Executor的API。
+    public static ExecutorService newSingleThreadExecutor()
+    public static ExecutorService newSingleThreadExecutor(ThreadFactory threadFactory)
+    SingleThreadExecutor适用于需要保证顺序地执行各个任务；并且在任意时间点，不会有多个线程是活动的应用场景。
+    3. CachedThreadPool。下面是Executors提供的，创建一个会根据需要创建新线程的CachedThreadPool的API。
+    public static ExecutorService newCachedThreadPool()
+    public static ExecutorService newCachedThreadPool(ThreadFactory threadFactory)
+    CachedThreadPool是大小无界的线程池，适用于执行很多的短期异步任务的小程序，或者是负载较轻的服务器。
+```
+
+2. ScheduledThreadPoolExecutor
+
+```
+ScheduledThreadPoolExecutor通常使用工厂类Executors来创建。Executors可以创建2种类型的ScheduledThreadPoolExecutor，如下。
+    1. ·ScheduledThreadPoolExecutor。包含若干个线程的ScheduledThreadPoolExecutor。
+    2. ·SingleThreadScheduledExecutor。只包含一个线程的ScheduledThreadPoolExecutor
+```
+
+3. Future 接口
+>Future接口和实现Future接口的FutureTask类用来表示异步计算的结果。当我们把Runnable接口或Callable接口的实现类提交（submit）给ThreadPoolExecutor或ScheduledThreadPoolExecutor时，ThreadPoolExecutor或ScheduledThreadPoolExecutor会向我们返回一个FutureTask对象。
+>
+>Java仅仅保证返回的是一个实现了Future接口的对象。在将来的JDK实现中，返回的可能不一定是FutureTask。
+
+4. Runnable接口和Callable接口
+> Runnable接口和Callable接口的实现类，都可以被ThreadPoolExecutor或Scheduled-ThreadPoolExecutor执行。它们之间的区别是Runnable不会返回结果，而Callable可以返回结果。
+>
+>除了可以自己创建实现Callable接口的对象外，还可以使用工厂类Executors来把一个Runnable包装成一个Callable。
+
+## 10.2 ThreadPoolExecutor详解
+>Executor框架最核心的类是ThreadPoolExecutor，它是线程池的实现类，主要由下列4个组件构成。
+
+1. ·corePool：核心线程池的大小。
+2. ·maximumPool：最大线程池的大小。
+3. ·BlockingQueue：用来暂时保存任务的工作队列。
+4. ·RejectedExecutionHandler：当ThreadPoolExecutor已经关闭或ThreadPoolExecutor已经饱和时（达到了最大线程池大小且工作队列已满），execute()方法将要调用的Handler。
+
+>通过Executor框架的工具类Executors，可以创建3种类型的ThreadPoolExecutor。
+1. ·FixedThreadPool。
+2. ·SingleThreadExecutor。
+3. ·CachedThreadPool。
+
+### 10.2.1 FixedThreadPool详解
+>FixedThreadPool被称为可重用固定线程数的线程池。
+
+```
+public static ExecutorService newFixedThreadPool(int nThreads) {
+    return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
+}
+```
+
+>FixedThreadPool的corePoolSize和maximumPoolSize都被设置为创建FixedThreadPool时指定的参数nThreads。
+
+![Sample Of Fixed ThreadPool Execute Running](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/SampleOfFixedThreadPoolExecuteRunning.jpg?raw=true)
+
+1. 如果当前运行的线程数少于corePoolSize，则创建新线程来执行任务。
+2. 在线程池完成预热之后（当前运行的线程数等于corePoolSize），将任务加入LinkedBlockingQueue。
+3. 线程执行完1中的任务后，会在循环中反复从LinkedBlockingQueue获取任务来执行。
+
+>FixedThreadPool使用无界队列LinkedBlockingQueue作为线程池的工作队列（队列的容量为Integer.MAX_VALUE）。使用无界队列作为工作队列会对线程池带来如下影响。
+
+1. 当线程池中的线程数达到corePoolSize后，新任务将在无界队列中等待，因此线程池中的线程数不会超过corePoolSize。
+2. 由于1，使用无界队列时maximumPoolSize将是一个无效参数。
+3. 由于1和2，使用无界队列时keepAliveTime将是一个无效参数。
+4. 由于使用无界队列，运行中的FixedThreadPool（未执行方法shutdown()或shutdownNow()）不会拒绝任务（不会调用RejectedExecutionHandler.rejectedExecution方法）。
+
+
+### 10.2.2 SingleThreadExecutor详解
+```
+public static ExecutorService newSingleThreadExecutor() {
+    return new FinalizableDelegatedExecutorService(new ThreadPoolExecutor(1, 1, 0L,  TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>()));
+}
+```
+
+>SingleThreadExecutor的corePoolSize和maximumPoolSize被设置为1。其他参数与FixedThreadPool相同
+
+1. 如果当前运行的线程数少于corePoolSize（即线程池中无运行的线程），则创建一个新线程来执行任务。
+2. 在线程池完成预热之后（当前线程池中有一个运行的线程），将任务加入Linked-BlockingQueue。
+3. 线程执行完1中的任务后，会在一个无限循环中反复从LinkedBlockingQueue获取任务来执行。
+
+### 10.2.3　CachedThreadPool详解
+>CachedThreadPool是一个会根据需要创建新线程的线程池。
+
+```
+public static ExecutorService newCachedThreadPool() {
+    return new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+}
+```
+>CachedThreadPool的corePoolSize被设置为0，即corePool为空；maximumPoolSize被设置为Integer.MAX_VALUE，即maximumPool是无界的。这里把keepAliveTime设置为60L，意味着CachedThreadPool中的空闲线程等待新任务的最长时间为60秒，空闲线程超过60秒后将会被终止。
+>
+>CachedThreadPool的execute()方法的执行示意图如下
+
+![RunningSampleOfCachedThreadPoolExecute](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/RunningSampleOfCachedThreadPoolExecute.jpg?raw=true)
+
+## 10.3 ScheduledThreadPoolExecutor详解
+>ScheduledThreadPoolExecutor继承自ThreadPoolExecutor。
+>
+>它主要用来在给定的延迟之后运行任务，或者定期执行任务。
+>
+>ScheduledThreadPoolExecutor的功能与Timer类似，但ScheduledThreadPoolExecutor功能更强大、更灵活。
+>
+>Timer对应的是单个后台线程，而ScheduledThreadPoolExecutor可以在构造函数中指定多个对应的后台线程数。
+
+### 10.3.1 ScheduledThreadPoolExecutor的运行机制
+>DelayQueue是一个无界队列，所以ThreadPoolExecutor的maximumPoolSize在ScheduledThreadPoolExecutor中没有什么意义（设置maximumPoolSize的大小没有什么效果）。
+>
+>ScheduledThreadPoolExecutor的执行主要分为两大部分。
+
+1. 当调用ScheduledThreadPoolExecutor的scheduleAtFixedRate()方法或者scheduleWithFixedDelay()方法时，会向ScheduledThreadPoolExecutor的DelayQueue添加一个实现了RunnableScheduledFutur接口的ScheduledFutureTask。
+2. 线程池中的线程从DelayQueue中获取ScheduledFutureTask，然后执行任务。
+
+>ScheduledThreadPoolExecutor为了实现周期性的执行任务，对ThreadPoolExecutor做了如下的修改。
+
+1. ·使用DelayQueue作为任务队列。
+2. ·获取任务的方式不同。
+3. ·执行周期任务后，增加了额外的处理
+
+### 10.3.2　ScheduledThreadPoolExecutor的实现
+>ScheduledThreadPoolExecutor会把待调度的任务（ScheduledFutureTask）放到一个DelayQueue中。
+>
+>ScheduledFutureTask主要包含3个成员变量，如下。
+
+1. ·long型成员变量time，表示这个任务将要被执行的具体时间。
+2. ·long型成员变量sequenceNumber，表示这个任务被添加到ScheduledThreadPoolExecutor中的序号。
+3. ·long型成员变量period，表示任务执行的间隔周期。
+
+\# DelayQueue封装了一个PriorityQueue，这个PriorityQueue会对队列中的ScheduledFutureTask进行排序。排序时，time小的排在前面（时间早的任务将被先执行）。如果两个ScheduledFutureTask的time相同，就比较sequenceNumber，sequenceNumber小的排在前面（也就是说，如果两个任务的执行时间相同，那么先提交的任务将被先执行）。
+
+![ScheduledThreadPoolExecutor Task Executing Steps](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ScheduledThreadPoolExecutorTaskExecutingStep.jpg?raw=true)
+
+>下面是对这4个步骤的说明
+
+1. 线程1从DelayQueue中获取已到期的ScheduledFutureTask（DelayQueue.take()）。到期任务是指ScheduledFutureTask的time大于等于当前时间。
+2. 线程1执行这个ScheduledFutureTask。
+3. 线程1修改ScheduledFutureTask的time变量为下次将要被执行的时间。
+4. 线程1把这个修改time之后的ScheduledFutureTask放回DelayQueue中（Delay-Queue.add()）。
+
+>ScheduledThreadPoolExecutor获取任务的过程分为3大步骤
+
+1. 获取Lock。
+2. 获取周期任务。
+    ```
+    1. ·如果PriorityQueue为空，当前线程到Condition中等待；否则执行下面的2.2。
+    2. ·如果PriorityQueue的头元素的time时间比当前时间大，到Condition中等待到time时间；否则执行下面的2.3。
+    3. ·获取PriorityQueue的头元素（2.3.1）；如果PriorityQueue不为空，则唤醒在Condition中等待的所有线程（2.3.2）。
+    ```
+3. 释放Lock。
+
+>添加任务分为3大步骤。
+
+1. 获取Lock。
+2. 添加任务。
+    ```
+    1. ·向PriorityQueue添加任务。
+    2. ·如果在上面2.1中添加的任务是PriorityQueue的头元素，唤醒在Condition中等待的所有线程。
+    ```
+3. 释放Lock。
+
+## 10.4 FutureTask详解
+>Future接口和实现Future接口的FutureTask类，代表异步计算的结果。
+
+### FutureTask简介
+>FutureTask除了实现Future接口外，还实现了Runnable接口。因此，FutureTask可以交给Executor执行，也可以由调用线程直接执行（FutureTask.run()）。根据FutureTask.run()方法被执行的时机，FutureTask可以处于下面3种状态。
+
+1. 未启动。FutureTask.run()方法还没有被执行之前，FutureTask处于未启动状态。当创建一个FutureTask，且没有执行FutureTask.run()方法之前，这个FutureTask处于未启动状态。
+2. 已启动。FutureTask.run()方法被执行的过程中，FutureTask处于已启动状态。
+3. 已完成。FutureTask.run()方法执行完后正常结束，或被取消（FutureTask.cancel（…）），或执行FutureTask.run()方法时抛出异常而异常结束，FutureTask处于已完成状态。
+
+>FutureTask的状态迁移的示意图
+
+![FutureTask Status Transform](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/FutureTaskStatusTransform.jpg?raw=true)
+
+
+|FutureTask Status|method|result|
+|-----------------|------|------|
+|未启动|FutureTask.cancel()|任务永远不会被执行|
+|已启动|FutureTask.cancel（true）|以中断执行此任务线程的方式来试图停止任务|
+|已启动|FutureTask.cancel（false）|不会对正在执行此任务的线程产生影响|
+|已完成|FutureTask.cancel（…）|返回false|
+
+![FutureTask Get And Cancel Executing Sample](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/FutureTaskGetAndCancelExecutingSample.jpg?raw=true)
+
+### 10.4.2　FutureTask的使用
+```
+private final ConcurrentMap<Object, Future<String>> taskCache = new ConcurrentHashMap<Object, Future<String>>();
+private String executionTask(final String taskName) throws ExecutionException, InterruptedException {
+    while (true) {
+        Future<String> future = taskCache.get(taskName);　　 // 1.1,2.1
+        if (future == null) {
+            Callable<String> task = new Callable<String>() {
+                public String call() throws InterruptedException {
+                    return taskName;
+                }
+            }; 
+            FutureTask<String> futureTask = new FutureTask<String>(task);
+            future = taskCache.putIfAbsent(taskName, futureTask);　 // 1.3
+            if (future == null) {
+                future = futureTask;
+                futureTask.run();　　　　　　　　 // 1.4执行任务
+            }
+        }
+        try {
+            return future.get();　　　　　　 // 1.5,2.2} catch (CancellationException e) {
+            taskCache.remove(taskName, future);
+        }
+    }
+}
+```
+
+![ProcessSample](https://github.com/rayshaw001/common-pictures/blob/master/concurrentJava/ProcessSample.jpg?raw=true)
