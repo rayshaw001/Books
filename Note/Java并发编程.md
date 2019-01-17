@@ -1050,7 +1050,7 @@ Lock接口提供的synchronized关键字所不具备的主要特性:
 Lock是一个接口，它定义了锁获取和释放的基本操作，Lock的API如下：
 |方法名称|描述|
 |-------|----|
-|void lock()||
+|void lock()|阻塞的获取锁|
 |void lockInterruptibly() throws InterruptedException|可中断地获取锁，和lock()方法的不同之处在于该方法会响应中断，即在锁的获取中可以中断当前线程|
 |boolean tryLock()|尝试非阻塞的获取锁，调用该方法后立刻返回，如果能够获取则返回true，否则返回false|
 |boolean tryLock(long time,TimeUnit unit) throws InterruptedException|超时的获取锁，当前线程在一下3种情况下会返回：<br>1. 当前线程在超时时间内获得了锁<br>2. 当前线程在超时时间内被中断<br>3. 超时时间结束，返回false|
@@ -1156,7 +1156,7 @@ class Mutex implements Lock {
 
 |属性类型与名称|描述|
 |------------|----|
-|int waitStatus|等待状态。<br/>包含如下状态：<br/>1. CANCELLED，值为1，由于在队列中等待的先层等待超时或者被中断，需要从同步队列中取消等待，节点进入该状态将不会变化<br/>2. SIGNAL,值为-1，后继节点的线程处于等待状态，而当前节点的线程如果释放了同步状态或者被取消，将会通知后继节点，使后继节点的线程得以运行<br>3. CONDITION,值为-2，节点在等待队列中，节点线程等待在Condition上，当其他线程对Condition调用了signal()方法后，该节点将会从等待队列中转移到同步队列中，加入到对同步状态的获取之中<br>4. PROPAGATE，值为-3，表示下一次共享式同步状态将会无条件地被传播下去<br>5. INITIAL，值为0，初始状态|
+|int waitStatus|等待状态。<br> 包含如下状态：<br> 1. CANCELLED，值为1，由于在队列中等待的先层等待超时或者被中断，需要从同步队列中取消等待，节点进入该状态将不会变化<br>2. SIGNAL,值为-1，后继节点的线程处于等待状态，而当前节点的线程如果释放了同步状态或者被取消，将会通知后继节点，使后继节点的线程得以运行<br>3. CONDITION,值为-2，节点在等待队列中，节点线程等待在Condition上，当其他线程对Condition调用了signal()方法后，该节点将会从等待队列中转移到同步队列中，加入到对同步状态的获取之中<br>4. PROPAGATE，值为-3，表示下一次共享式同步状态将会无条件地被传播下去<br>5. INITIAL，值为0，初始状态|
 |Node prev|前驱节点，当节点加入同步队列时被设置（尾部添加）|
 |Node next|后继结点|
 |Node nextWaiter|等待队列中的后继结点。如果当前节点是共享的，那么这个字段将是一个SHARED常量，也就是说节点类型（独占和共享）和等待队列中的后继结点共用同一个字段|
