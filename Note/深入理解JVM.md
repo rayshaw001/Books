@@ -148,7 +148,7 @@
 #### 3.3.1 标记-清除算法
 #### 3.3.2 复制算法
 #### 3.3.3 标记-整理算法
-#### 3.3.4 分代手机算法
+#### 3.3.4 分代收集算法
 
 ### 3.4 垃圾收集器
 
@@ -185,15 +185,49 @@
 3. 使用"标记-清除"算法
 4. 分四个步骤：
     ```
-        1. 初始标记（CMS initial mark）     标记一下GC Roots能直接关联到的对象，速度很快
-        2. 并发标记（CMS concurrent mark）  GC Roots Tracing
-        3. 重新标记（CMS  remark）          重新标记
-        4. 并发清除（CMS concurrent sweep）
+    1. **初始标记（CMS initial mark）**     标记一下GC Roots能直接关联到的对象，速度很快
+    2. 并发标记（CMS concurrent mark）      GC Roots Tracing
+    3. **重新标记（CMS  remark）**          修正并发标记期间，因用户程序继续运行而导致标记产生变动的那一部分对象的标记记录
+    4. 并发清除（CMS concurrent sweep）     
     ```
 5. 初始标记和重新标记需要stop the world
+
+>优点：
+
+1. 并发收集
+2. 低停顿
+
+>缺点：
+
+1. CMS收集器对CPU资源非常敏感，默认启动的回收线程数是（CPU数量+3）/ 4
+2. CMS收集器无法处理浮动垃圾
+    ```
+    1. 可能出现“Concurrent Mode Failure”失败而导致另一次Full GC，
+    2. 默认老年代使用了68%的空间后就会被激活
+    3. CMS运行期间预留的内存无法满足程序需要就会出现一次“Concurrent Mode Failure”，这时就会临时启用Serial Old收集器来重新进行老年代的垃圾收集，这样停顿时间就很长了
+    ```
+3. 使用的“标记-清除”算法实现的收集器，收集结束时会产生大量空间碎片
+    ```
+    1. 无法找到足够大的连续空间来分配当前对象，会触发一次Full GC
+    2. CMS收集器提佛那个 -XX:UseCMSCompactAtFullCollection开关参数，用于在Full GC之后会进行一次碎片整理过程
+    3. 内存整理过程无法并发，所以整理空间碎片会导致GC时间变长
+    4. -XX:CNSFullGCsBeforeCompaction,这个参数用于设置在执行多少次不压缩的Full GC后，跟着来一次带压缩的
+    ```
+
 #### 3.4.7 G1收集器
+>它比CMS收集器有两个显著的该进：
+
+1. 基于“标记-整理”算法实现
+2. 可以非常精准地控制停顿，可以明确地指定在一个时间长度为M毫秒的时间片内，消耗在垃圾收集上的时间不得超过N毫秒
+
+>原理：
+
+1. 将整个Java堆（包括新生代，老生代）划分为多个大小固定的独立区域
+2. 跟踪这些区域里面的垃圾堆积程度，在后台维护一个有限列表，
+3. 每次根据允许的收集时间，有限回收垃圾最多的区域（Garbage First名称的由来）
 
 #### 3.4.8 垃圾收集器参数总结
+![Params For Garbage Collect](https://github.com/rayshaw001/common-pictures/blob/master/deep%20in%20JVM/ParamsForGarbageCollect.jpg?raw=true)
 
 ### 3.5 内存分配与回收策略
 
