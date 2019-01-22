@@ -249,7 +249,7 @@
 3. 每次根据允许的收集时间，有限回收垃圾最多的区域（Garbage First名称的由来）
 
 #### 3.4.8 垃圾收集器参数总结
-![Params For Garbage Collect](https://github.com/rayshaw001/common-pictures/blob/master/deep%20in%20JVM/ParamsForGarbageCollect.jpg?raw=true)
+![Params For Garbage Collect](https://github.com/rayshaw001/common-pictures/blob/master/deep%20in%20JVM/ParamsForGarbageCollect.png?raw=true)
 
 ### 3.5 内存分配与回收策略
 
