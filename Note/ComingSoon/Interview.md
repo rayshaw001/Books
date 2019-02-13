@@ -1,3 +1,4 @@
+\# Alibaba
 # Java
 ## I
 ### HashMap HashSet ArrayList LinkedList
@@ -6,22 +7,39 @@
 3. HashMap在什么情况下会扩容，或者有哪些操作会导致扩容
 4. hashmap 检测到hash冲突后，将元素插在链表末为还是开头
 5. map怎么实现hashcode和equals，为什么重写equals必须重写hashcode
+```
+集合类持有的对象才需要
+```
 6. 1.8版本的hashmap 采用了红黑树，讲讲红黑树的特性，为什么一定要用红黑树而不是AVL树，B树，B+树
+```
+AVL： 完全平衡的二叉树
+红黑树：AVL的简化版，放宽了一些限制
+B/B+树：持有多个值，next指针也有多个
+```
 
 ### Concurrent
 1. 多线程的锁？怎么优化的？偏向锁、轻量级锁、重量级锁
+```
+偏向锁：只有一个线程进入临界区；
+轻量级锁：多个线程交替进入临界区；
+重量级锁：多个线程同时进入临界区。
+```
 2. Java里面的锁synchornized，Lock，实现的区别
 3. synchronized锁升级的过程，用于解决那些问题
 4. AtomicInteger，为什么要使用CAS而不是synchronized
 5. AtomicInteger实现原理是什么？和你设计的计数器优劣比较？CAS怎么实现原子操作？
 6. 公平锁，非公平锁怎么实现的，AQS原理介绍一下
 7. Java容器有哪些？那些是同步容器，哪些是并发容器？
+```
+1. 同步容器：Collections.synchornizedXX
+2. 并发容器：java.util.concurrent.*；
+```
 8. concurrentHashMap怎么实现？concurrenthashmap在1.8和1.7里面有什么区别
 9. CountdownLatch、linkedHashMap、AQS实现原理
 10. 使用过concurrent包下的哪些类，使用场景等等。
 11. 线程池有哪些RejectedExecutionHandler，分别对应的使用场景
 12. 线程池的工作原理，几个重要的参数，然后给几个具体的参数分析线程池会怎么做，最后问阻塞队列的作用是什么？
-13. 线程池有哪些参数？分别有什么用？如果任务书超过核心线程数，会发生什么？阻塞队列大小是多少？
+13. 线程池有哪些参数？分别有什么用？如果任务数超过核心线程数，会发生什么？阻塞队列大小是多少？
 14. 数据库连接池介绍一下，底层实现说下
 15. 线程安全的计数器
 16. java线程安全queue需要注意的点
@@ -75,20 +93,33 @@
 
 # redis
 ## II
-1. redis 是单线程，分布式怎么做
+1. redis 是单线程，分布式（redis集群）怎么做
+```
+数据分区
+```
 2. redis数据结构底层编码有哪些？有序链表采用了哪些不同的编码？
+
+|数据结构（type）|实际类型|底层编码|值最大size|
+|---------------|--------|-------|----------|
+|字符串（string）|简单字符串，复杂字符串（XML，JSON），数字（浮点，整型），二进制（图片，视频，音频）|raw，int，embstr|512MB|
+|哈希（hash）||ziplist（默认），hashtable（value大于64字节或者field个数超过512）|2^32-1|
+|列表（list）||ziplist（默认），linkedlist（value大于64字节或者field个数超过512），quicklist(v3.2以后)|2^32-1|
+|集合（set）||intset（默认），hashtable（元素个数大于512个）|2^32-1|
+|有序集合（zset）||ziplist(默认),skiplist（元素个数大于128或value大于64字节）|2^32-1|
+
 3. redis的hash结构最多能存多少个元素
+```
+2^32-1
+```
 4. 使用过那些NoSQL数据库？MongoDB和redis使用哪些场景
 5. 分布式事务之TCC服务设计
 6. redus和memcache有什么区别？redis为什么比memcache有优势
 7. 考虑redis的时候，有没有考虑容量？大概数据量会有多少？
-8. redis集群
 
 ## III
 1. redis有哪些数据结构？底层的编码有哪些？有序链表采用了哪些不同的编码？
-2. redis底层的编码有哪些？有序链表采用了哪些不同的编码
-3. redis扩容，失效key清理策略
-4. redis持久化怎么做，aof和rdb，有什么区别，有什么优点
+2. redis扩容，失效key清理策略
+3. redis持久化怎么做，aof和rdb，有什么区别，有什么优点
 
 # MySQL
 ## I
@@ -158,3 +189,135 @@
 5. 聊印象深刻的人生经历
 6. 说下技术方面或者生活方面你做得比较好的一个点和不足的一个点
 7. 职业规划
+
+
+
+
+
+
+\# Other
+# sougou
+## Part 1
+1. 写一个单例模式
+2. HashMap的底层源码实现，jdk1.8做了哪些优化
+3. JVM 内存布局，**怎样查内存溢出**
+4. **程序从数据库连接池里获取不到链接可，可能是什么原因？**
+5. **kafka怎样存储offset，kafka的索引文件的格式是怎样的？为什么要这样设计**
+6. **如果再提交offset的时候zk挂掉了，怎么保证消息不被重复消费？**
+7. **zk的watch机制，zab协议**
+8. **服务的注册与发现机制怎么实现？**
+9. 老年代和新生代有哪些回收算法
+```
+老年代：G1、Serial Old、Parallel Old、CMS 
+新生代：G1、Serial、ParNew 、Parallel Scavenge
+```
+10. CMS有哪几个阶段？分别做什么？
+```
+1. 初始标记 标记GC root能直接关联的对象
+2. 并发标记 GC Root Tracing
+3. 重复标记 标记并发标记期间用户线程新产生的对象
+4. 并发清除 清除
+```
+11. **新生代里引用老年代的对象，GC会怎样处理？**
+
+## Part 2
+
+1. Redis 有哪些基本数据类型
+```
+String、Set、Hash、List
+```
+2. **Spring AOP的动态代理是怎样做的？**
+3. **用过哪些设计模式？能举个例子吗？**
+4. **Spring怎样避免循环依赖？看过源码吗？**
+5. **Servlet里怎样注入Spring容器的bean？**
+6. 写一段代码统计二叉树的高度
+```
+public class Solution{
+    public int binaryTreeHeight(ListNode head){
+        if(head==null){
+            return 0;
+        }
+        return Math.max(1+binaryTreeHeight(head.left),1+binaryTreeHeight(head.right));
+    }
+}
+
+```
+7. **JIT怎样加测热点方法？**
+8. **令牌桶算法有了解过吗？**
+9. **怎样限制5分钟内10w的访问量？**
+10. **Spring初始化和SpringBoot初始化有什么区别？**
+11. 怎样找出Spring里有@XXX注解的bean，写一段代码
+12. 一个RPC需要什么？怎样实现一个RPC？
+13. 知道哪些序列化？JDK序列化怎样实现？thrift序列化怎样实现？
+14. 你有什么想问我的？
+
+\# 饿了么
+
+## Part 1
+1. 自我介绍
+2. 先说一下你们目前用的技术栈，用过SpringCloud吗？
+3. 讲一下Springoot的启动流程，重要的流程在纸上画一下
+4. ipv4地址与整型数据互转，设计一个当打实现一下吧？
+```
+public class Solution{
+    public int toInt(String ip){
+        String[] ints = ip.split(".");
+        int result = 0;
+        for(int i=0; i<ints.length; i++){
+            result += Integer.parseInt(ints[i]<<i*8);
+        }
+        return result;
+    }
+
+    public String toIp(int ip){
+        int tmp = 0xff;
+        String result = "";
+        for(int i=0; i<4; i++){
+            result = ip&tmp + result;
+            ip>>8;
+        }
+        return result;
+    }
+}
+```
+5. 判断链表有没有环 时间复杂度O(n), 空间复杂度O(1)
+```
+public class Solution{
+    public boolean hasCycle(LstNode head){
+        ListNode tmp = head;
+        ListNode next = head;
+        while(tmp!=null&&tmp.next!=null&&next!=null&&next.next!=null) {
+            tmp=tmp.next;
+            next=next.next.next;
+            if(tmp==next){
+                return true;
+            }
+        };
+        return false;
+    }
+}
+```
+6. **yang GC和full GC**
+7. 目前用的什么版本的jdk 看过hashmap的源码吗？，jdk1.8hashmap的实现？，和concurrentHashMap的区别？Segment的数据结构？
+8. ArrayList和linkedList的区别和底层实现
+9. 写一个线程安全的单例模式
+```
+public class Solution{
+    private static volatile Singleton singleton;
+    private Solution(){
+
+    }
+    public getSigleton(){
+        if(sigleton==null){
+            synchornized(Solution.class){
+                if(singleton==null){
+                    sigleton = new Singleton();
+                }
+            }
+        }
+        return singleton;
+    }
+
+}
+
+```
