@@ -57,15 +57,41 @@ B/B+树：持有多个值，next指针也有多个
 9. 项目中的JVM调优
 10. 说一下GC，什么时候进行Full GC·
 11. OOM说一下，怎么排查？哪些会导致OOM
+```
+1. 死循环
+2. 递归次数过多
+3. List、Map、Set使用完未清除
+4. 数据库查询一次性查询所有数据
+
+Solution：增大：PermSize
+```
 
 ### Spring Tomcat
 1. Tomcat的类加载器结构
-2. Spring 如何让两个bean按顺序加载
+2. Spring 如何让两个bean按顺序加载      
+```
+A. 先写的先加载
+B. 使用@DependOn注解
+```
 3. spring mvc 怎么处理请求全流程
 4. spring 一个bean装配的过程
+```
+A. 转换对应beanName
+B. 尝试从缓存中加载单例
+C. bean实例化
+D. 原型模式的依赖检查
+E. 检测parentBeanFactory
+F. 将存储的XML配置文件的GernericBeanDefinition 转换为 RootBeanDefinition
+G. 寻找依赖
+H. 针对不同的scope进行bean的创建
+I. 类型转换
+```
 
 ### Other
 1. java反射原理，注解原理
+```
+类信息
+```
 
 ## II
 ### Concurrent
@@ -113,7 +139,7 @@ B/B+树：持有多个值，next指针也有多个
 ```
 4. 使用过那些NoSQL数据库？MongoDB和redis使用哪些场景
 5. 分布式事务之TCC服务设计
-6. redus和memcache有什么区别？redis为什么比memcache有优势
+6. redis和memcache有什么区别？redis为什么比memcache有优势
 7. 考虑redis的时候，有没有考虑容量？大概数据量会有多少？
 
 ## III
@@ -124,6 +150,10 @@ B/B+树：持有多个值，next指针也有多个
 # MySQL
 ## I
 1. 组合索引，B+树如何存储的
+```
+非叶子节点只存储一级索引信息
+叶子节点按索引顺序排序
+```
 2. 为什么缓存更新策略是先更新数据库后删除缓存
 
 ## II
@@ -321,3 +351,15 @@ public class Solution{
 }
 
 ```
+10. **已知一个服务大概有20E次访问，统计一下pv和uv**
+11. 写一个shell命令，统计一下访问量在前100的接口
+12. redis一般用在什么场景？写一个基于redis2.6的分布式锁
+13. 具体说下mysql的事务的隔离级别，MyISMA和INNODB的区别。如果是90%都是查询的场景、选哪一个引擎？
+14. Ltrace你主要负责哪块？实现的流程？
+15. 乐观锁和悲观锁？
+
+## Part 2
+
+1. 为什么想这个时候离职
+2. SpringBoot的启动流程，用了很多event和listener，有什么好处
+3. 讲一下jdk1.8的hashmap做了哪些优化
