@@ -4,8 +4,21 @@
 ### HashMap HashSet ArrayList LinkedList
 1. hashset底层实现，hashmap的put操作
 2. ArrayList和LinkedList的插入和访问时间复杂度？
+
+||insert|get|
+|-|-----|---|
+|ArrayList|O(n)|O(1)|
+|LinkedList|O(1)|O(n)|
+
 3. HashMap在什么情况下会扩容，或者有哪些操作会导致扩容
+```
+realSize>size*loadfactor
+```
 4. hashmap 检测到hash冲突后，将元素插在链表末为还是开头
+```
+1.7 表头
+1.8 链表则表头、红黑树则根据具体情况插入
+```
 5. map怎么实现hashcode和equals，为什么重写equals必须重写hashcode
 ```
 集合类持有的对象才需要
@@ -55,7 +68,7 @@ B/B+树：持有多个值，next指针也有多个
 7. Java什么时候发生内存溢出，Java堆呢
 8. 集合类如何解决这个问题（集合类持有对象容易发生内存溢出）
 9. 项目中的JVM调优
-10. 说一下GC，什么时候进行Full GC·
+10. 说一下GC，什么时候进行Full GC
 11. OOM说一下，怎么排查？哪些会导致OOM
 ```
 1. 死循环
@@ -69,7 +82,21 @@ Solution：增大：PermSize
 ### Spring Tomcat
 1. Tomcat的类加载器结构
 ```
+容器、应用1、应用2
+全部可见：commonLoader
+应用之间可见：sharedLoader
+容器可见、应用不可见：catalinaLoader
+应用私有：webappClassLoader
+commonLoader：Tomcat最基本的类加载器，加载路径中的class可以被Tomcat容器本身以及各个Webapp访问；
+catalinaLoader：Tomcat容器私有的类加载器，加载路径中的class对于Webapp不可见；
+sharedLoader：各个Webapp共享的类加载器，加载路径中的class对于所有Webapp可见，但是对于Tomcat容器不可见；
+WebappClassLoader：各个Webapp私有的类加载器，加载路径中的class只对当前Webapp可见；
 
+多说一句：双亲委派模型
+Bootstrap ClassLoader
+Extension ClassLoader
+Application ClassLoader
+User ClassLoader
 ```
 2. Spring 如何让两个bean按顺序加载      
 ```

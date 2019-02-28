@@ -122,7 +122,7 @@ XmlBeanFactory继承自 DefaultListableBeanFactory,而 DefaultListableBeanFactor
 
 ### 2.5.1 配置文件封装
 
-### 2.52 加载Bean
+### 2.5.2 加载Bean
 
 ## 2.6 获取XML的验证模式
 
