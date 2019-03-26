@@ -5,3 +5,5 @@ sm和sx，propel之间的的线程池，使用不同的用户登录
 GET 方法里面包含 insert 操作
 
 history record 与record相互引用
+
+线程数量一般为CPU核心数2~3倍，初始数量为CPU核心数、如果包含主线程，则为核心数减一

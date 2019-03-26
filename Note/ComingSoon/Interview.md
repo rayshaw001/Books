@@ -4,8 +4,21 @@
 ### HashMap HashSet ArrayList LinkedList
 1. hashset底层实现，hashmap的put操作
 2. ArrayList和LinkedList的插入和访问时间复杂度？
+
+||insert|get|
+|-|-----|---|
+|ArrayList|O(n)|O(1)|
+|LinkedList|O(1)|O(n)|
+
 3. HashMap在什么情况下会扩容，或者有哪些操作会导致扩容
+```
+realSize>size*loadfactor
+```
 4. hashmap 检测到hash冲突后，将元素插在链表末为还是开头
+```
+1.7 表头
+1.8 链表则表头、红黑树则根据具体情况插入
+```
 5. map怎么实现hashcode和equals，为什么重写equals必须重写hashcode
 ```
 集合类持有的对象才需要
@@ -18,8 +31,9 @@ B/B+树：持有多个值，next指针也有多个
 ```
 
 ### Concurrent
-1. 多线程的锁？怎么优化的？偏向锁、轻量级锁、重量级锁
+1. 多线程的锁？怎么优化的？自旋锁、偏向锁、轻量级锁、重量级锁
 ```
+自旋锁：适合耗时短的任务
 偏向锁：只有一个线程进入临界区；
 轻量级锁：多个线程交替进入临界区；
 重量级锁：多个线程同时进入临界区。
@@ -49,13 +63,13 @@ B/B+树：持有多个值，next指针也有多个
 1. Java 内存分区
 2. Java对象的回收方式
 3. 回收算法
-4. CMS和G1，CMS解决什么，说一下回收过程，CMS为什么停顿两次(Concurrent Mark Sweep)
+4. CMS和G1，CMS解决什么，说一下回收过程，CMS为什么停顿两次
 5. 你了解哪些收集器，CMS和G1，G1的优点
 6. 新生代分几个区？使用什么算法进行垃圾回收，为什么使用这个算法
 7. Java什么时候发生内存溢出，Java堆呢
 8. 集合类如何解决这个问题（集合类持有对象容易发生内存溢出）
 9. 项目中的JVM调优
-10. 说一下GC，什么时候进行Full GC·
+10. 说一下GC，什么时候进行Full GC
 11. OOM说一下，怎么排查？哪些会导致OOM
 ```
 1. 死循环
@@ -69,7 +83,21 @@ Solution：增大：PermSize
 ### Spring Tomcat
 1. Tomcat的类加载器结构
 ```
+容器、应用1、应用2
+全部可见：commonLoader
+应用之间可见：sharedLoader
+容器可见、应用不可见：catalinaLoader
+应用私有：webappClassLoader
+commonLoader：Tomcat最基本的类加载器，加载路径中的class可以被Tomcat容器本身以及各个Webapp访问；
+catalinaLoader：Tomcat容器私有的类加载器，加载路径中的class对于Webapp不可见；
+sharedLoader：各个Webapp共享的类加载器，加载路径中的class对于所有Webapp可见，但是对于Tomcat容器不可见；
+WebappClassLoader：各个Webapp私有的类加载器，加载路径中的class只对当前Webapp可见；
 
+多说一句：双亲委派模型
+Bootstrap ClassLoader
+Extension ClassLoader
+Application ClassLoader
+User ClassLoader
 ```
 2. Spring 如何让两个bean按顺序加载      
 ```
@@ -77,6 +105,9 @@ A. 先写的先加载
 B. 使用@DependOn注解
 ```
 3. spring mvc 怎么处理请求全流程
+```
+前端控制器 -> Handler Mapping -> Handler Adapter -> preIntercepter -> handle -> postIntercepter
+```
 4. spring 一个bean装配的过程
 ```
 A. 转换对应beanName
@@ -88,6 +119,27 @@ F. 将存储的XML配置文件的GernericBeanDefinition 转换为 RootBeanDefini
 G. 寻找依赖
 H. 针对不同的scope进行bean的创建
 I. 类型转换
+```
+5. spring bean 生命周期：
+```
+A. BeanFactory加载完Bean Definition和class，实例化bean对象
+B. 检查有没有实现BeanNameAware，有则调用setBeanName（得到bean id）
+C. 检查有没有实现BeanClassLoaderAware，有则调用setBeanClassLoader
+D. 检查有没有实现EnvironmentAware，有则调用setEnvironment
+E. 检查有没有实现EmbeddedValueResolverAware，有则调用setEmbeddedValueResolver
+F. 检查有没有实现ApplicationEventPublisherAware，有则调用setApplicationEventPublisher
+G. 检查有没有实现MessageSourceAware，有则调用setMessageSource
+H. 检查有没有实现ApplicationContextAware，有则调用setApplicationContext
+I. 检查有没有实现ServletContextAware，有则调用setServletContext
+J. 调用BeanPostProcessors中所有postProcessBeforeInitialization，对bean进行更进一步的配置
+K. 调用InitializingBean接口中的afterPropertiesSet执行bean自身提供的初始化代码
+L. 调用通过其他方式指定的init-method方法，执行bean自身的初始化
+M. 调用BeanPostProcessors中的所有postProcessAfterInitialization方法
+```
+
+6. Spring IoC、AOP
+```
+
 ```
 
 ### Other
@@ -179,18 +231,9 @@ I. 类型转换
 # 分布式
 ## III
 1. cap了解吗
-```
-一致性、可用性、分区容错
-```
 2. 负载均衡怎么做，为什么这么做
-```
-一致性hash
-```
 3. 分布式、消息队列，用在什么场景，削峰，限流、异步
 4. 有哪些集群模式，各自的区别
-```
-
-```
 5. 分布式全局唯一ID怎样来实现？
 6. dubbo的生产者如何发布服务，注册服务，消费者如何调用服务
 7. dubo负载均衡的策略有哪些？一致性哈希聊一下？
@@ -211,7 +254,7 @@ I. 类型转换
 0. B+树和B树的区别，优缺点
 1. https和http的区别，有没有用过其他安全传输的手段
 2. OSI七层结构，每层结构都是干什么的
-3. 哪些设计模式？装饰器，代理等等
+3. 哪些设计模式？装饰器，代理==
 4. linux查看系统负载
 
 ## II
@@ -294,7 +337,7 @@ public class Solution{
 14. 你有什么想问我的？
 
 \# 饿了么
-0
+
 ## Part 1
 1. 自我介绍
 2. 先说一下你们目前用的技术栈，用过SpringCloud吗？

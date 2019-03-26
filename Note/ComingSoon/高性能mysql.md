@@ -1,17 +1,56 @@
-High Performance MySQL,Third Edition
+\# High Performance MySQL,Third Edition
 # 1 MySQL 架构与历史
 ## 1.1 MySQL逻辑架构
 ### 1.1.1 连接管理与安全性
 ### 1.1.2 优化与执行
 ## 1.2 并发控制
 ### 1.2.1 读写锁
+
+```
+共享锁  ->  读锁
+排它锁  ->  写锁
+```
 ### 1.2.2 锁粒度
+
+```
+表锁（MyISAM）：
+行锁（InnoDB）：最大程度地提供并发，同时也带来了最大的开销
+```
 ## 1.3 事务
+
+```
+A：原子性
+C：一致性
+I：隔离性
+D：持久性
+```
 ### 1.3.1 隔离级别
+
+```
+读未提交
+读提交
+可重复读
+序列化
+```
+\# MVCC
 ### 1.3.2 死锁
+>InnoDB 目前处理死锁的办法是：将持有最少行级排它锁的事务进行回滚
 ### 1.3.3 事务日志
+>预写式日志
 ### 1.3.4 MySQL中的事务
+
+```
+MySQL提供两种事务型的存储引擎：InnoDB和NDB Cluster
+
+MySQL默认采用自动提交模式
+事务型表（InnoDB）和非事务型表混用，正常提交数据不会有问题，但是如果事务需要回滚，那么非事务型表就表现得无法回滚，从而导致数据变更无法撤销
+```
 ## 1.4 多版本并发控制
+
+```
+MVCC 是行级锁的一个变种，但是它在很多情况下避免了加锁操作，因此开销更低
+InnoDB 的MVCC，是通过在每行记录后面保存两个隐藏的列来实现的。这两个列，一个保存了行的创建时间，一个保存行的过期时间
+```
 ## 1.5 MySQL 的存储引擎
 ### 1.5.1 InnoDB存储引擎
 ### 1.5.2 MyISAM存储引擎
@@ -89,9 +128,15 @@ High Performance MySQL,Third Edition
 # 5 创建高性能的索引
 ## 5.1 索引基础
 ### 5.1.1 索引的类型
+> B-Tree索引
 ## 5.2 索引的有点
 ## 5.3 高性能的索引策略
 ### 5.3.1 独立的列
+```
+无法使用索引的示例：
+SELECT * FROM db.table WHERE id + 1 = 5;
+SELECT ... WHERE TO_DAYS(CURRENT_DATE) - TO_DAYS(date_col) <=10;
+```
 ### 5.3.2 前缀索引和索引选择性
 ### 5.3.3 多列索引
 ### 5.3.4 选择合适的索引列顺序
@@ -441,3 +486,44 @@ High Performance MySQL,Third Edition
 ### 16.4.2 商业监控系统
 ### 16.4.3 Innotop的命令行监控
 ## 16.5 总结
+
+
+\# Note
+```
+explain 执行计划包含的信息:
+其中最重要的字段为：id、type、key、rows、Extra 
+```
+|id|select_type|table|type|possible_keys|key|key_len|ref|raws|Extra|
+|--|-----------|-----|----|-------------|---|-------|---|----|-----|
+
+>1. id
+```
+id 相同则从上往下执行；
+id不同，则id大的先执行；
+id相同又不同，参考前两条
+```
+
+>2. select_type
+```
+主要用来区分普通查询、联合查询、子查询等复杂查询：
+1、SIMPLE           简单的select查询、查询中不包含子查询或者union查询
+2、RIMARY           查询中包含任何复杂的字部分，最外层查询则被标记为primary
+3、SUBQUERY         在select或where列表中包含了子查询
+4、DERIVED          在from列表中包含的子查询被标记为derived，mysql或递归执行这些子查询，把结果放在临时表里
+5、UNION            若第二个select出现在union之后，则被标记为union；若union包含在from子句的子查询中，外层select将被标记为derived 
+6、UNION RESULT     从union表获取结果的select 
+```
+
+>3. type 
+```
+由好到坏依次是：
+system > const > eq_ref > ref > fulltext > ref_or_null > index_merge > unique_subquery > index_subquery > range > index > ALL
+一般来说，好的sql查询至少达到range级别，最好能达到ref
+1、system   system是const的特例、一般不会出现
+2、const    表示通过一次索引就找到了，const用于比较primary key 或者 unique索引。因为只需匹配一行数据，所有很快。如果将主键置于where列表中，mysql就能将该查询转换为一个const 
+3、eq_ref
+4、ref
+5、range
+6、index
+7、ALL
+```
