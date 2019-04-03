@@ -2,12 +2,69 @@ Java
 hashmap(红黑树)和concurrentHashMap hashtable 1.7 1.8（非常高频）
 arraylist linkedlist linkedhashmap
 线程池的使用（参数运用）(非常高频)
+```
+corePoolSize
+核心线程数：每秒任务数*每个任务耗时
+
+maxPoolSize
+最大线程数
+
+keepAliveTime
+超时退出时间
+
+allowCoreThreadTimeout
+true:允许核心线程超时退出
+false:不允许
+
+queueCapacity
+切忌以下写法：LinkedBlockingQueue queue = new LinkedBlockingQueue();//这样写默认大小就是Integer.MAX_VALUE
+```
 volatile 有什么作用
+```
+可见性
+防止重排序
+```
 sychronized和lock有什么区别 (高频)
+```
+
+```
 java多线程有哪些实战用过的
 java反射原理
+```
+类信息
+```
 手写生产者消费者代码；使用concurrent包下的来实现生产者消费者
+```
+public class Container<T>{
+    int size=0;
+    Queue<T> q;
+    public Container<T>(int size){
+        q=LinkedList<T>();
+        this.size=size;
+    }
+
+    synchronized public void put(T t){
+        while(q.size()==size){
+            this.wait();
+        }
+        q.add(t);
+        this.notifiyAll();
+    }
+
+    synchronized public T take(){
+        while(q.isEmpty()){
+            this.wait();
+        }
+        this.notifyAll();
+        return q.poll();
+    }
+}
+```
 同步异步阻塞非阻塞的差别
+```
+对于服务端来说，同步异步
+对于调用者来说，阻塞非阻塞
+```
 AQS原理
 多线程如何解决死锁  写个死锁
 阻塞和等待之间的区别
@@ -18,6 +75,12 @@ java锁有哪些
 synchronized优化 偏向锁
 JDK读写锁 countdownlatch AtomicInteger
 
+||private|default|protected|public|
+|---|----|-------|---------|------|
+|同类|true|true|true|true|
+|同包|false|true|true|true|
+|子类|false|false|true|true|
+|全局|false|false|false|true|
 
 JVM
 GC回收 
@@ -57,11 +120,24 @@ Spring
 ioc，aop原理及实现，及其应用 DI（非常高频）
 spring事务实现原理。抛出异常之后回滚情况。事务传播机制  ..
 spring 如何解决循环依赖
+```
+先实例化，再set注入
+```
 SpringBean初始化
-A和B两个bean的顺序加载   @DependsOn({"a"})
+```
+
+```
+A和B两个bean的顺序加载   
+```
+@DependsOn({"a"})
+```
 BeanFactory和ApplicationContext的区别
-Singleton和Prototype的区别   单例和每次都new  默认是singleton 有状态的bean用Prototype
+Singleton和Prototype的区别   
+```
+单例和每次都new  默认是singleton 有状态的bean用Prototype
+```
 动态代理和静态代理有什么区别   aop静态代理在虚拟机启动时通过改变目标对象字节码的方式来完成对目标对象的增强 
+
 Spring启动过程 
 Springboot启动流程 
 springmvc的工作流程
@@ -191,6 +267,13 @@ session与cookie，以及项目中如何运用的
 一个网页具体是如何工作的
 二叉树非递归中序遍历
 数组最大子序列的和
+```
+    1   2   3   4   -8  5   6   7   6
+    1   3   6   10  2   7   13  20  26
+
+    -1  -2  -3  -4  -5
+    -1  -2  -3  -4  -5
+```
 设计一个hashmap
 
 
