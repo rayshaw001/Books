@@ -38,25 +38,39 @@ java反射原理
 public class Container<T>{
     int size=0;
     Queue<T> q;
+    Lock lock;
+    Condition condition;
     public Container<T>(int size){
         q=LinkedList<T>();
         this.size=size;
+        lock = new ReentrantLock();
+        condition = lock.newCondition();
     }
 
-    synchronized public void put(T t){
-        while(q.size()==size){
-            this.wait();
+    public void put(T t){
+        try{
+            lock.lock();
+            while(q.size()==size){
+                condition.await();
+            }
+            q.add(t);
+            condition.signalAll();
+        } finally{
+            lock.unlock();
         }
-        q.add(t);
-        this.notifiyAll();
     }
 
     synchronized public T take(){
-        while(q.isEmpty()){
-            this.wait();
+        try{
+            lock.lock();
+            while(q.isEmpty()){
+                condition.await();
+            }
+            condition.signalAll();
+            return q.poll();
+        } finally{
+            lock.unlock()
         }
-        this.notifyAll();
-        return q.poll();
     }
 }
 ```
@@ -68,9 +82,22 @@ public class Container<T>{
 AQS原理
 多线程如何解决死锁  写个死锁
 阻塞和等待之间的区别
+```
+阻塞：blocked，正在等待获取锁
+等待：waiting，等待其他线程发送notify、notifyAll消息
+```
 LRU cache
 Java的四种引用
+```
+强
+弱
+软
+虚
+```
 双亲委派模型
+```
+
+```
 java锁有哪些
 synchronized优化 偏向锁
 JDK读写锁 countdownlatch AtomicInteger
@@ -90,6 +117,10 @@ JVM内存布局  ..
 full GC  young GC
 Jvm调优是否有实战过  jvm分区
 查GC频繁 内存泄漏
+```
+频繁GC：httpclient 使用完，对应的资源没有释放导致内存占用巨大
+前面调用
+```
 java类加载流程
 outofmemory排查 ..
 怎么判断对象存活

@@ -77,7 +77,7 @@ B/B+树：持有多个值，next指针也有多个
 3. List、Map、Set使用完未清除
 4. 数据库查询一次性查询所有数据
 
-Solution：增大：PermSize
+1.7以下，因为1.8移除了永久代，改称为metaspace ，Solution：增大：PermSize
 ```
 
 ### Spring Tomcat
