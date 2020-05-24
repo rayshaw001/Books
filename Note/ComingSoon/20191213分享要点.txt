@@ -1,0 +1,55 @@
+分享要点：
+
+1、GFS
+
+1. 传统单机文件系统
+2. 大文件如何存储
+3. 超大文件如何存储
+4. 存在的问题
+4. GFS存储方式  发现数据损坏
+5. GFS为什么更优雅
+6. GFS写
+7. GFS读
+8. 数据同步
+9. 损坏的块如何修复
+
+2、Bigtable
+
+1. B+、Hash
+2. LSM   --- 最基本的存储引擎
+        加快写操作
+        加快读操作
+        防止数据文件无尽的增长
+3. 文件内快速查询
+4. 如何保存大表
+5. 如何保存超大表
+6. 如何写数据
+7. 内存表过大时怎么办？
+8. 如何避免丢失内存数据
+9. 如何读数据
+10. 如何加速读取    index
+11. 能更快吗？      bloomfilter
+11.1 读写并发，copyonwrite
+12. 如何构建bloomfilter
+13. 如何存入GFS   小表和log
+14. 表的逻辑视图
+15. 逻辑视图转换为物理视图
+16. BigTable架构
+
+
+深入浅出GFS：       https://www.bilibili.com/video/av10636418
+深入浅出BigTable：   https://www.bilibili.com/video/av28742111
+深入浅出MapReduce：  https://www.bilibili.com/video/av10681909
+LSM存储引擎基本原理： https://juejin.im/post/5c99f0556fb9a070e82c1fcf
+
+Google File System论文中文版：http://blog.bizcloudsoft.com/wp-content/uploads/Google-File-System%E4%B8%AD%E6%96%87%E7%89%88_1.0.pdf
+Google Bigtable论文中文版：   http://blog.bizcloudsoft.com/wp-content/uploads/Google-Bigtable%E4%B8%AD%E6%96%87%E7%89%88_1.0.pdf
+
+
+| id | recommendation | settings | versionType | fraction | callerExpress       | calleeExpress       | updatedAt | updator |
++----+----------------+----------+-------------+----------+---------------------+---------------------+-----------+---------+
+|  1 |              0 |        0 | alpha       |        1 | com.rayshaw.xiaorui | com.xiaorui.rayshaw | NULL      | NULL    |
+
+insert into auth_wake_rl_v2(recommendation, settings, versionType, fraction, callerExpress, calleeExpress,updator) values(1, 0, 'alpha', 1, 'com.miui.*', '*','xiaorui1');
+insert into auth_wake_rl_v2(recommendation, settings, versionType, fraction, callerExpress, calleeExpress,updator) values(2, 0, 'alpha', 1, 'com.xiaomi.*', '*','xiaorui1');
+insert into auth_wake_rl_v2(recommendation, settings, versionType, fraction, callerExpress, calleeExpress,updator) values(2, 0, 'alpha', 1, 'com.sina.weibo', 'com.taobao.taobao','xiaorui1');
